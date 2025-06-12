@@ -12,64 +12,88 @@ import io
 def set_korean_font():
     """
     Matplotlib에서 한글 사용을 위한 설정을 수행합니다.
-    - matplotlibrc 파일을 통해 주 폰트 설정이 이루어진다고 가정합니다.
-    - 여기서는 unicode_minus 설정을 하고, 현재 설정된 폰트를 확인하여 디버깅 정보를 출력합니다.
+    packages.txt로 설치된 나눔 폰트를 찾아 명시적으로 설정하려고 시도합니다.
     """
-    # 디버깅 로그: 함수 호출 시점 및 Matplotlib 초기 상태 확인
-    # print("DEBUG (utils.py): set_korean_font() function CALLED.")
-    # print(f"DEBUG (utils.py): Matplotlib rc file Matplotlib thinks it's using: {matplotlib.matplotlib_fname()}")
-    # print(f"DEBUG (utils.py): Initial plt.rcParams['font.family'] from Matplotlib: {plt.rcParams.get('font.family')}")
-
-    # matplotlibrc 파일이 프로젝트 루트에 있는지 확인 (Streamlit Cloud 기준)
-    # Streamlit Cloud에서 앱 루트는 보통 /mount/src/<your_repo_name>/
-    # os.getcwd()는 스크립트 실행 위치에 따라 다를 수 있으므로, 상대 경로 기준이 더 안정적일 수 있음
-    # 그러나 Streamlit Cloud에서는 일반적으로 앱 루트에서 실행됨
+    # print("DEBUG (utils.py): set_korean_font() CALLED.")
+    font_found = False
     
-    # rc_file_in_root_path = 'matplotlibrc' # 프로젝트 루트에 있다고 가정
-    # if os.path.exists(rc_file_in_root_path):
-    #     print(f"DEBUG (utils.py): 'matplotlibrc' FOUND in app root: {os.path.abspath(rc_file_in_root_path)}")
-    #     try:
-    #         with open(rc_file_in_root_path, 'r') as f:
-    #             rc_content = f.read()
-    #             print(f"DEBUG (utils.py): Content of 'matplotlibrc':\n{rc_content}")
-    #             if "NanumGothic" not in rc_content and "NanumBarunGothic" not in rc_content: # 더 많은 폰트 확인 가능
-    #                 print("WARNING (utils.py): 'matplotlibrc' file does not seem to specify a Nanum font for font.family.")
-    #     except Exception as e:
-    #         print(f"ERROR (utils.py): Could not read 'matplotlibrc' content: {e}")
-    # else:
-    #     print(f"WARNING (utils.py): 'matplotlibrc' NOT FOUND in app root ('{os.getcwd()}'). Ensure it's in the GitHub repo root.")
-
-    # 주된 폰트 설정은 matplotlibrc에 의존. 여기서는 unicode_minus만 확실히 설정.
-    plt.rcParams['axes.unicode_minus'] = False
-
-    # 최종적으로 matplotlib이 어떤 폰트를 사용하는지 확인하고,
-    # 만약 한글 지원 폰트가 아니라면 사용자에게 경고 (st.sidebar.warning)
-    # 이 경고는 st.set_page_config() 이후에 호출되어야 하므로,
-    # 이 함수를 호출하는 페이지 스크립트에서 set_korean_font()를 적절한 위치에 배치해야 함.
+    # 1. 알려진 나눔 폰트 이름 목록 (Streamlit Cloud에서 설치될 가능성이 높은 이름)
+    nanum_font_names = ['NanumGothic', 'NanumBarunGothic', 'NanumSquare', 'NanumMyeongjo']
     
-    # 현재 Matplotlib에 의해 실제로 사용될 폰트 패밀리 확인
-    # rcParams는 여러 값을 가질 수 있으므로 첫 번째 값을 주로 확인
-    final_font_family_list = plt.rcParams.get('font.family', ['Unknown'])
-    final_font_family = final_font_family_list[0] if final_font_family_list else 'Unknown'
+    # 2. FontManager를 통해 설치된 폰트 목록에서 직접 찾아 설정 시도
+    #    fm._rebuild() # 캐시 재빌드는 마지막 수단으로 고려하거나, 앱 재부팅으로 대체
     
-    # print(f"DEBUG (utils.py): Final effective plt.rcParams['font.family'] after all settings: {final_font_family_list}")
+    try:
+        font_list = fm.findSystemFonts(fontpaths=None, fontext='ttf')
+        # print(f"DEBUG (utils.py): Found {len(font_list)} system fonts.")
+        
+        # 나눔 폰트 경로 찾기 (대소문자 구분 없이)
+        found_nanum_path = None
+        for font_path_system in font_list:
+            font_filename = os.path.basename(font_path_system).lower()
+            if 'nanumgothic.ttf' in font_filename or \
+               'nanumbarungothic.ttf' in font_filename or \
+               'nanumsquare.ttf' in font_filename or \
+               'nanummyeongjo.ttf' in font_filename:
+                found_nanum_path = font_path_system
+                # print(f"DEBUG (utils.py): Found a Nanum font file: {found_nanum_path}")
+                break # 하나 찾으면 사용
 
-    # 기대하는 한글 폰트 이름 목록 (소문자로 비교)
-    expected_korean_font_names_lower = ['nanumgothic', 'nanumbarungothic', 'nanumsquare', 'noto sans cjk kr', 'malgun gothic', 'apple SD gothic neo', 'apple sd gothicneo', 'apple sd 산돌고딕 neo']
+        if found_nanum_path:
+            # 찾은 폰트 파일 경로를 사용하여 FontProperties 생성 후 rcParams 설정
+            font_prop = fm.FontProperties(fname=found_nanum_path)
+            font_name_from_path = font_prop.get_name()
+            
+            plt.rc('font', family=font_name_from_path) # 이름으로 설정
+            plt.rcParams['font.family'] = font_name_from_path # 명시적 재설정
+            # plt.rcParams['font.sans-serif'] = [font_name_from_path] + plt.rcParams['font.sans-serif'] # sans-serif 목록에도 추가 시도
+            font_found = True
+            # print(f"DEBUG (utils.py): Successfully set font to '{font_name_from_path}' using path '{found_nanum_path}'.")
+        # else:
+            # print("DEBUG (utils.py): No Nanum font file found via findSystemFonts scan.")
 
-    is_korean_font_likely_set = any(expected_name in final_font_family.lower() for expected_name in expected_korean_font_names_lower)
+    except Exception as e:
+        # print(f"DEBUG (utils.py): Error during findSystemFonts or setting font by path: {e}")
+        pass
+
+    # 3. 위에서 경로 기반 설정에 실패했다면, 이름으로 다시 시도 (fontManager.ttflist 기반)
+    if not font_found:
+        try:
+            available_fm_fonts = [f.name for f in fm.fontManager.ttflist]
+            # print(f"DEBUG (utils.py): Fonts in fm.fontManager.ttflist (sample): {available_fm_fonts[:10]}")
+            for font_name in nanum_font_names:
+                if font_name in available_fm_fonts:
+                    plt.rc('font', family=font_name)
+                    plt.rcParams['font.family'] = font_name
+                    font_found = True
+                    # print(f"DEBUG (utils.py): Successfully set font to '{font_name}' by fontManager.ttflist name.")
+                    break
+                # else:
+                    # print(f"DEBUG (utils.py): Font name '{font_name}' not in fontManager.ttflist.")
+        except Exception as e:
+            # print(f"DEBUG (utils.py): Error while checking fm.fontManager.ttflist: {e}")
+            pass
+
+    # 4. 최종 확인 및 경고 (st.set_page_config 이후 호출 가정)
+    current_font_family_list = plt.rcParams.get('font.family', ['Unknown'])
+    current_font_family = current_font_family_list[0] if current_font_family_list else 'Unknown'
+
+    expected_korean_font_names_lower = ['nanumgothic', 'nanumbarungothic', 'nanumsquare', 'nanummyeongjo']
+    is_korean_font_likely_set = any(expected_name in current_font_family.lower() for expected_name in expected_korean_font_names_lower)
 
     if not is_korean_font_likely_set:
-        # print(f"WARNING (utils.py): Final font family '{final_font_family}' does not seem to be a Korean font.")
+        # print(f"WARNING (utils.py): Final font family '{current_font_family}' does not seem to be a Korean font.")
         st.sidebar.warning(
-             f"한글 폰트가 올바르게 설정되지 않은 것 같습니다 (현재 Matplotlib 기본 폰트: {final_font_family}). "
-             "그래프의 한글이 깨질 수 있습니다. 'matplotlibrc' 파일과 'packages.txt' 설정을 확인하고, "
-             "GitHub 리포지토리 루트에 파일들이 올바르게 위치하는지, 앱을 재부팅(Reboot)했는지 확인해주세요."
+             f"한글 폰트가 올바르게 설정되지 않은 것 같습니다 (현재 Matplotlib 기본 폰트: {current_font_family}). "
+             "그래프의 한글이 깨질 수 있습니다. 'packages.txt' 설정을 확인하고, "
+             "앱을 재부팅(Reboot)했는지 확인해주세요. 로그에서 'DEBUG' 메시지를 확인해보세요."
         )
     # else:
-        # print(f"INFO (utils.py): Matplotlib font family appears to be set to a Korean-supporting font: {final_font_family}.")
+        # print(f"INFO (utils.py): Matplotlib font family appears to be set to: {current_font_family}.")
 
+    plt.rcParams['axes.unicode_minus'] = False
 
+# --- load_csv, load_geojson, load_csv_from_upload 함수는 이전 답변과 동일하게 유지 ---
 @st.cache_data
 def load_csv(
     file_path, 
@@ -80,7 +104,7 @@ def load_csv(
     na_values_config=None,
     sep_config=','
 ):
-    full_path = file_path # Assuming file_path is already like "data/filename.csv"
+    full_path = file_path
     
     if not os.path.exists(full_path):
         st.error(f"데이터 파일을 찾을 수 없습니다: {full_path}")
@@ -114,10 +138,10 @@ def load_geojson(path_or_url):
     try:
         if path_or_url.startswith('http'):
             response = requests.get(path_or_url)
-            response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+            response.raise_for_status()
             return response.json()
         else:
-            full_path = path_or_url 
+            full_path = path_or_url
             if not os.path.exists(full_path):
                 st.error(f"GeoJSON 파일을 찾을 수 없습니다: {full_path}")
                 return None
@@ -126,7 +150,7 @@ def load_geojson(path_or_url):
     except requests.exceptions.RequestException as e:
         st.error(f"GeoJSON URL에서 데이터 로드 중 오류: {e}")
         return None
-    except FileNotFoundError: # This might be redundant if os.path.exists is checked first
+    except FileNotFoundError:
         st.error(f"GeoJSON 파일을 찾을 수 없습니다: {path_or_url}")
         return None
     except json.JSONDecodeError as e:
@@ -138,7 +162,7 @@ def load_geojson(path_or_url):
 
 @st.cache_data
 def load_csv_from_upload(
-    _uploaded_file_object, # Underscore to indicate it's used for caching key
+    _uploaded_file_object,
     encoding_options=['utf-8-sig', 'utf-8', 'cp949', 'euc-kr'], 
     header_config=None, 
     skiprows_config=None, 
@@ -148,28 +172,24 @@ def load_csv_from_upload(
     if _uploaded_file_object is None:
         return None
         
-    # For actual processing, use the passed object directly
     uploaded_file_object = _uploaded_file_object 
     
     for encoding in encoding_options:
         try:
-            # The uploaded file object has a getvalue() method to get bytes
             bytes_data = uploaded_file_object.getvalue()
             
             read_options = {'encoding': encoding, 'sep': sep_config}
             if header_config is not None: read_options['header'] = header_config
             if skiprows_config is not None: read_options['skiprows'] = skiprows_config
-            # nrows is not typically used with uploaded files as we usually read the whole thing
             if na_values_config is not None: read_options['na_values'] = na_values_config
 
-            # Pass BytesIO object to pandas
             df = pd.read_csv(io.BytesIO(bytes_data), **read_options)
             return df
         except UnicodeDecodeError:
-            continue # Try next encoding
+            continue
         except Exception as e:
             st.warning(f"업로드된 파일 '{uploaded_file_object.name}' 로드 중 오류 (인코딩: {encoding}): {e}")
-            return None # Return None on other errors
+            return None
             
     st.error(f"업로드된 파일 '{uploaded_file_object.name}' 로드 실패. 모든 인코딩 시도 실패.")
     return None
