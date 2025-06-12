@@ -12,84 +12,100 @@ import io
 def set_korean_font():
     """
     Matplotlib에서 한글 사용을 위한 설정을 수행합니다.
-    packages.txt로 설치된 나눔 폰트를 찾아 명시적으로 설정하려고 시도합니다.
+    Streamlit Cloud 환경에 중점을 둡니다.
     """
     # print("DEBUG (utils.py): set_korean_font() CALLED.")
     font_found = False
     
-    # 1. 알려진 나눔 폰트 이름 목록 (Streamlit Cloud에서 설치될 가능성이 높은 이름)
-    nanum_font_names = ['NanumGothic', 'NanumBarunGothic', 'NanumSquare', 'NanumMyeongjo']
-    
-    # 2. FontManager를 통해 설치된 폰트 목록에서 직접 찾아 설정 시도
-    #    fm._rebuild() # 캐시 재빌드는 마지막 수단으로 고려하거나, 앱 재부팅으로 대체
-    
     try:
-        font_list = fm.findSystemFonts(fontpaths=None, fontext='ttf')
-        # print(f"DEBUG (utils.py): Found {len(font_list)} system fonts.")
-        
-        # 나눔 폰트 경로 찾기 (대소문자 구분 없이)
-        found_nanum_path = None
-        for font_path_system in font_list:
-            font_filename = os.path.basename(font_path_system).lower()
-            if 'nanumgothic.ttf' in font_filename or \
-               'nanumbarungothic.ttf' in font_filename or \
-               'nanumsquare.ttf' in font_filename or \
-               'nanummyeongjo.ttf' in font_filename:
-                found_nanum_path = font_path_system
-                # print(f"DEBUG (utils.py): Found a Nanum font file: {found_nanum_path}")
-                break # 하나 찾으면 사용
-
-        if found_nanum_path:
-            # 찾은 폰트 파일 경로를 사용하여 FontProperties 생성 후 rcParams 설정
-            font_prop = fm.FontProperties(fname=found_nanum_path)
-            font_name_from_path = font_prop.get_name()
-            
-            plt.rc('font', family=font_name_from_path) # 이름으로 설정
-            plt.rcParams['font.family'] = font_name_from_path # 명시적 재설정
-            # plt.rcParams['font.sans-serif'] = [font_name_from_path] + plt.rcParams['font.sans-serif'] # sans-serif 목록에도 추가 시도
-            font_found = True
-            # print(f"DEBUG (utils.py): Successfully set font to '{font_name_from_path}' using path '{found_nanum_path}'.")
-        # else:
-            # print("DEBUG (utils.py): No Nanum font file found via findSystemFonts scan.")
-
+        # print("DEBUG (utils.py): Attempting to rebuild font cache with fm._rebuild()...")
+        fm._rebuild() # 폰트 캐시 강제 재빌드 시도
+        # print("DEBUG (utils.py): Font cache rebuild attempt finished.")
     except Exception as e:
-        # print(f"DEBUG (utils.py): Error during findSystemFonts or setting font by path: {e}")
+        # print(f"DEBUG (utils.py): Error during font cache rebuild: {e}")
         pass
 
-    # 3. 위에서 경로 기반 설정에 실패했다면, 이름으로 다시 시도 (fontManager.ttflist 기반)
+    # 1. 가장 먼저, 알려진 한글 폰트 이름으로 직접 설정 시도
+    #    fm._rebuild()가 제대로 동작했다면, 새로 설치된 폰트가 여기에 잡혀야 함
+    preferred_font_names = ['NanumGothic', 'NanumBarunGothic', 'NanumSquare', 'Noto Sans CJK KR']
+    
+    try:
+        available_system_fonts_after_rebuild = [f.name for f in fm.fontManager.ttflist]
+        # print(f"DEBUG (utils.py): System fonts available AFTER REBUILD (sample): {available_system_fonts_after_rebuild[:20]}")
+
+        for font_name in preferred_font_names:
+            if font_name in available_system_fonts_after_rebuild:
+                plt.rcParams['font.family'] = font_name
+                # rcParams에 family를 설정하면 plt.rc는 따로 안해도 될 수 있음
+                # plt.rc('font', family=font_name) 
+                font_found = True
+                # print(f"DEBUG (utils.py): Successfully SET font to '{font_name}' by NAME from fontManager.ttflist.")
+                break
+            # else:
+                # print(f"DEBUG (utils.py): Font name '{font_name}' NOT in fontManager.ttflist after rebuild.")
+    except Exception as e:
+        # print(f"DEBUG (utils.py): Error checking/setting font by NAME after rebuild: {e}")
+        pass
+
+    # 2. 이름으로 설정 실패 시, 표준 설치 경로에서 직접 파일 찾아 설정 시도
     if not font_found:
-        try:
-            available_fm_fonts = [f.name for f in fm.fontManager.ttflist]
-            # print(f"DEBUG (utils.py): Fonts in fm.fontManager.ttflist (sample): {available_fm_fonts[:10]}")
-            for font_name in nanum_font_names:
-                if font_name in available_fm_fonts:
-                    plt.rc('font', family=font_name)
-                    plt.rcParams['font.family'] = font_name
+        # print("DEBUG (utils.py): Failed to set font by name. Trying specific paths...")
+        nanum_font_paths_linux = [
+            '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+            '/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf',
+            '/usr/share/fonts/truetype/nanum/NanumSquareR.ttf', # Regular
+            '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf',
+        ]
+        for font_path in nanum_font_paths_linux:
+            if os.path.exists(font_path):
+                try:
+                    # 폰트 매니저에 폰트 파일 경로를 알리고, 해당 폰트 속성을 가져와 설정
+                    font_entry = fm.FontEntry(fname=font_path, name=os.path.splitext(os.path.basename(font_path))[0])
+                    # fm.fontManager.ttflist.append(font_entry) # 직접 ttflist 조작은 마지막 수단
+                    
+                    # FontProperties를 통해 이름 가져오고 설정
+                    font_prop_name = fm.FontProperties(fname=font_path).get_name()
+                    plt.rcParams['font.family'] = font_prop_name
                     font_found = True
-                    # print(f"DEBUG (utils.py): Successfully set font to '{font_name}' by fontManager.ttflist name.")
+                    # print(f"DEBUG (utils.py): Successfully SET font to '{font_prop_name}' using PATH '{font_path}'.")
                     break
-                # else:
-                    # print(f"DEBUG (utils.py): Font name '{font_name}' not in fontManager.ttflist.")
-        except Exception as e:
-            # print(f"DEBUG (utils.py): Error while checking fm.fontManager.ttflist: {e}")
-            pass
+                except Exception as e:
+                    # print(f"DEBUG (utils.py): Failed to set font from PATH '{font_path}': {e}")
+                    pass
+            # else:
+                # print(f"DEBUG (utils.py): Font path NOT FOUND: {font_path}")
 
-    # 4. 최종 확인 및 경고 (st.set_page_config 이후 호출 가정)
-    current_font_family_list = plt.rcParams.get('font.family', ['Unknown'])
-    current_font_family = current_font_family_list[0] if current_font_family_list else 'Unknown'
 
-    expected_korean_font_names_lower = ['nanumgothic', 'nanumbarungothic', 'nanumsquare', 'nanummyeongjo']
-    is_korean_font_likely_set = any(expected_name in current_font_family.lower() for expected_name in expected_korean_font_names_lower)
+    # 로컬 환경 폴백 (이전과 유사)
+    if not font_found:
+        # print("DEBUG (utils.py): Nanum fonts not found by name or specific path even after rebuild. Trying local OS fallbacks.")
+        if os.name == 'nt': # Windows
+            if 'Malgun Gothic' in [f.name for f in fm.fontManager.ttflist]:
+                plt.rcParams['font.family'] = 'Malgun Gothic'; font_found = True
+        elif os.name == 'posix' and "darwin" in os.uname().sysname.lower(): # macOS
+            if 'AppleGothic' in [f.name for f in fm.fontManager.ttflist]: # AppleGothic이 더 일반적
+                plt.rcParams['font.family'] = 'AppleGothic'; font_found = True
+            elif 'Apple SD Gothic Neo' in [f.name for f in fm.fontManager.ttflist]:
+                 plt.rcParams['font.family'] = 'Apple SD Gothic Neo'; font_found = True
+
+
+    # 최종 확인 및 경고
+    final_font_family_list = plt.rcParams.get('font.family', ['Unknown'])
+    final_font_family = final_font_family_list[0] if final_font_family_list else 'Unknown'
+
+    expected_korean_font_names_lower = ['nanumgothic', 'nanumbarungothic', 'nanumsquare', 'nanummyeongjo', 'noto sans cjk kr', 'malgun gothic', 'applegothic', 'apple sd gothic neo']
+
+    is_korean_font_likely_set = any(expected_name in final_font_family.lower() for expected_name in expected_korean_font_names_lower)
 
     if not is_korean_font_likely_set:
-        # print(f"WARNING (utils.py): Final font family '{current_font_family}' does not seem to be a Korean font.")
+        # print(f"WARNING (utils.py): Final font family '{final_font_family}' after all attempts does not seem to be a Korean font.")
         st.sidebar.warning(
-             f"한글 폰트가 올바르게 설정되지 않은 것 같습니다 (현재 Matplotlib 기본 폰트: {current_font_family}). "
-             "그래프의 한글이 깨질 수 있습니다. 'packages.txt' 설정을 확인하고, "
-             "앱을 재부팅(Reboot)했는지 확인해주세요. 로그에서 'DEBUG' 메시지를 확인해보세요."
+             f"한글 폰트가 올바르게 설정되지 않았습니다 (현재 Matplotlib 기본 폰트: {final_font_family}). "
+             "그래프의 한글이 깨질 수 있습니다. 'packages.txt'에 'fonts-nanum*'이 있고 앱이 재부팅되었는지 확인하세요. "
+             "Streamlit Cloud 로그에서 'DEBUG' 메시지를 통해 폰트 설정을 추적해보세요."
         )
     # else:
-        # print(f"INFO (utils.py): Matplotlib font family appears to be set to: {current_font_family}.")
+        # print(f"INFO (utils.py): Matplotlib font family appears to be successfully set to: {final_font_family}.")
 
     plt.rcParams['axes.unicode_minus'] = False
 
