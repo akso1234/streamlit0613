@@ -8,6 +8,9 @@ from utils import set_korean_font, load_csv, load_geojson # utils.py의 함수 �
 import os
 import numpy as np
 from shapely.geometry import shape # 중심점 계산을 위해 추가
+from utils import set_korean_font
+
+set_korean_font()
 
 # --- 데이터 전처리 및 추출 함수 (이전과 동일) ---
 @st.cache_data
