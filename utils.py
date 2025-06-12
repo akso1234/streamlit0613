@@ -1,9 +1,9 @@
-# --- START OF utils.py (모든 디버깅 로그 활성화 버전) ---
+# --- START OF utils.py (디버깅 정보를 Streamlit 사이드바에 표시) ---
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import matplotlib # matplotlib_fname() 사용을 위해 추가
+# import matplotlib # matplotlib_fname()는 이 방식에서 덜 중요
 import os
 import json
 import requests
@@ -12,106 +12,114 @@ import io
 def set_korean_font():
     """
     Matplotlib에서 한글 사용을 위한 설정을 수행합니다.
-    리포지토리에 포함된 폰트 파일을 직접 사용합니다. (모든 디버깅 로그 활성화)
+    리포지토리에 포함된 폰트 파일을 직접 사용하고, 디버깅 정보를 사이드바에 표시합니다.
     """
-    print("DEBUG (utils.py): set_korean_font() CALLED - Attempting to use font file from repo.")
+    st.sidebar.subheader("Font Debugging Info:") # 디버깅 섹션 제목
+    st.sidebar.write(f"Function `set_korean_font()` CALLED.")
     font_found = False
 
-    # --- 사용자가 리포지토리에 추가할 폰트 파일명 및 경로 설정 ---
-    # !!! 중요: 실제 사용하는 폰트 파일명으로 수정하세요 !!!
-    font_filename = "NanumGothic.ttf" 
-    
-    # 폰트 파일이 리포지토리 루트에 있다고 가정
-    font_path_in_repo = font_filename 
+    font_filename_in_repo = "NanumGothic.ttf" 
+    font_path_in_repo = font_filename_in_repo
+    # font_path_in_repo = os.path.join("assets", "fonts", font_filename_in_repo) # 하위 폴더라면 이 줄 사용
 
-    # 만약 'assets/fonts/' 폴더 안에 있다면 아래 주석을 해제하고 위 라인을 주석 처리:
-    # font_path_in_repo = os.path.join("assets", "fonts", font_filename)
-    # -----------------------------------------------------------
-
-    print(f"DEBUG (utils.py): Expected font file relative path in repo: '{font_path_in_repo}'")
-    print(f"DEBUG (utils.py): Current working directory (os.getcwd()): {os.getcwd()}")
+    st.sidebar.write(f"1. Expected font file: '{font_path_in_repo}' (relative to app root)")
     
-    absolute_font_path_check = os.path.join(os.getcwd(), font_path_in_repo)
-    print(f"DEBUG (utils.py): Checking for font file at absolute path: '{absolute_font_path_check}'")
+    current_working_dir = os.getcwd()
+    st.sidebar.write(f"2. Current Working Dir: `{current_working_dir}`")
+    
+    absolute_font_path_check = os.path.join(current_working_dir, font_path_in_repo)
+    st.sidebar.write(f"3. Absolute path being checked: `{absolute_font_path_check}`")
 
     if os.path.exists(font_path_in_repo):
-        print(f"DEBUG (utils.py): Font file '{font_path_in_repo}' FOUND relative to app root.")
+        st.sidebar.success(f"4. Font file '{font_path_in_repo}' FOUND in app structure.")
         try:
             font_prop = fm.FontProperties(fname=font_path_in_repo)
             font_name_from_file = font_prop.get_name()
-            print(f"DEBUG (utils.py): Font name extracted from file '{font_path_in_repo}' is: '{font_name_from_file}'")
+            st.sidebar.write(f"5. Extracted font name from file: '{font_name_from_file}'")
 
-            # Matplotlib의 rcParams에 설정
-            # plt.rc('font', family=font_name_from_file) # 이 줄 대신 아래 rcParams 직접 설정 사용
-            plt.rcParams['font.family'] = font_name_from_file # 폰트 파일에서 가져온 이름으로 설정
-            # sans-serif 목록의 가장 앞에 추가하여 우선순위를 높이는 것도 한 방법일 수 있습니다.
-            # current_sans_serif = plt.rcParams['font.sans-serif']
-            # if font_name_from_file not in current_sans_serif:
-            #     plt.rcParams['font.sans-serif'] = [font_name_from_file] + current_sans_serif
-            # print(f"DEBUG (utils.py): plt.rcParams['font.sans-serif'] after prepending: {plt.rcParams['font.sans-serif']}")
-            
+            plt.rcParams['font.family'] = font_name_from_file
             font_found = True
-            print(f"DEBUG (utils.py): Successfully SET plt.rcParams['font.family'] to '{font_name_from_file}' using repo file: {font_path_in_repo}")
+            st.sidebar.success(f"6. Successfully SET `plt.rcParams['font.family']` to: '{font_name_from_file}'")
         except Exception as e:
-            print(f"DEBUG (utils.py): FAILED to set font using repo file '{font_path_in_repo}'. Error: {e}")
-            pass
+            st.sidebar.error(f"5a. FAILED to process/set font from repo file '{font_path_in_repo}'. Error: {e}")
+            font_found = False # 명시적 실패 처리
     else:
-        print(f"DEBUG (utils.py): Font file '{font_path_in_repo}' NOT FOUND relative to app root.")
-        print(f"DEBUG (utils.py): Listing files in current working directory ('{os.getcwd()}'):")
+        st.sidebar.error(f"4. Font file '{font_path_in_repo}' NOT FOUND in app structure.")
+        st.sidebar.write(f"   Files in CWD ('{current_working_dir}'):")
         try:
-            for item in os.listdir(os.getcwd()):
-                print(f"  - {item}")
-        except Exception as e_ls:
-            print(f"  Could not list files in CWD: {e_ls}")
-        
-        if "assets" in font_path_in_repo: # assets/fonts 경로를 사용했을 경우 추가 디버깅
-            assets_fonts_path = os.path.join(os.getcwd(), "assets", "fonts")
-            print(f"DEBUG (utils.py): Listing files in '{assets_fonts_path}' (if it exists):")
-            if os.path.exists(assets_fonts_path) and os.path.isdir(assets_fonts_path):
-                try:
-                    for item in os.listdir(assets_fonts_path):
-                        print(f"  - {item}")
-                except Exception as e_ls_af:
-                    print(f"  Could not list files in assets/fonts: {e_ls_af}")
+            # 현재 작업 디렉토리의 파일 목록을 조금 더 보기 쉽게 표시
+            cwd_files = os.listdir(current_working_dir)
+            if cwd_files:
+                for item in cwd_files[:10]: # 너무 많으면 일부만
+                    st.sidebar.caption(f"     - {item}")
+                if len(cwd_files) > 10:
+                    st.sidebar.caption(f"     ... and {len(cwd_files)-10} more items.")
             else:
-                print(f"  Path '{assets_fonts_path}' does not exist or is not a directory.")
+                st.sidebar.caption("     (No files found in CWD or CWD is not a directory)")
+        except Exception as e_ls:
+            st.sidebar.caption(f"     Could not list files in CWD: {e_ls}")
+        
+        # assets/fonts 경로도 확인 (만약 해당 경로를 사용하도록 설정했다면)
+        if "assets" in font_path_in_repo:
+            assets_fonts_path_check = os.path.join(current_working_dir, "assets", "fonts")
+            st.sidebar.write(f"   Checking alternative path: '{assets_fonts_path_check}'")
+            if os.path.exists(assets_fonts_path_check) and os.path.isdir(assets_fonts_path_check):
+                st.sidebar.write(f"   Files in '{assets_fonts_path_check}':")
+                try:
+                    for item in os.listdir(assets_fonts_path_check):
+                        st.sidebar.caption(f"     - {item}")
+                except Exception as e_ls_af:
+                    st.sidebar.caption(f"     Could not list files in assets/fonts: {e_ls_af}")
+            else:
+                st.sidebar.write(f"   Path '{assets_fonts_path_check}' does not exist or is not a directory.")
 
 
+    # 시스템 폰트 목록에서 이름으로 찾는 시도 (폴백 또는 추가 확인용)
     if not font_found:
-        print("WARNING (utils.py): Could not set Korean font from repository file. Will try system fallbacks if any.")
-        st.sidebar.warning(
-             f"리포지토리에 포함된 한글 폰트 파일 ('{font_path_in_repo}')을 찾거나 설정할 수 없습니다. "
-             "그래프의 한글이 깨질 수 있습니다. 파일 경로와 GitHub 리포지토리를 확인해주세요."
-        )
-        # 시스템 기본 폰트로 폴백 시도
-        preferred_system_fonts = ['NanumGothic', 'Malgun Gothic', 'AppleGothic', 'sans-serif']
-        for sys_font_name in preferred_system_fonts:
-            try:
-                # print(f"DEBUG (utils.py): Attempting fallback to system font: '{sys_font_name}'")
-                plt.rcParams['font.family'] = sys_font_name
-                # 설정이 실제로 적용되었는지 간단히 확인
-                if plt.rcParams['font.family'][0] == sys_font_name: 
-                    print(f"DEBUG (utils.py): Fallback to system font '{sys_font_name}' seems to be applied to rcParams.")
-                    # font_found = True # 이 줄을 활성화하면, 시스템 폴백 성공 시 경고가 안 뜰 수 있음 (그러나 한글 지원 보장X)
-                    break 
-            except Exception as e_fallback:
-                print(f"DEBUG (utils.py): Fallback to system font '{sys_font_name}' FAILED: {e_fallback}")
-                continue
-        if not font_found: # 리포지토리 폰트도, 시스템 폴백도 다 실패하면
-             print(f"DEBUG (utils.py): All font setting attempts failed. Setting to 'sans-serif'.")
-             plt.rcParams['font.family'] = 'sans-serif'
+        st.sidebar.write("7. Font from repo not set. Attempting system font names...")
+        nanum_font_names_system = ['NanumGothic', 'NanumBarunGothic', 'NanumSquare']
+        try:
+            # fm._rebuild() # 캐시 재빌드는 매우 신중하게, 필요시 주석 해제
+            
+            font_manager_font_list_names = [f.name for f in fm.fontManager.ttflist]
+            st.sidebar.write(f"   Available system font names (sample):")
+            displayed_count = 0
+            for f_name_fm in font_manager_font_list_names:
+                if 'nanum' in f_name_fm.lower() or displayed_count < 5 : # 나눔 계열 또는 처음 5개 표시
+                    st.sidebar.caption(f"     - {f_name_fm}")
+                    displayed_count +=1
+            if len(font_manager_font_list_names) > displayed_count:
+                 st.sidebar.caption(f"     ... and more.")
 
+
+            for name_sys in nanum_font_names_system:
+                if name_sys in font_manager_font_list_names:
+                    plt.rcParams['font.family'] = name_sys
+                    font_found = True # 시스템 폰트라도 찾았으면 True로
+                    st.sidebar.success(f"8. Successfully SET `plt.rcParams['font.family']` to system font: '{name_sys}'")
+                    break
+                else:
+                    st.sidebar.caption(f"   System font name '{name_sys}' NOT in fontManager.ttflist.")
+        except Exception as e_sys:
+            st.sidebar.error(f"8a. Error during system font name check: {e_sys}")
 
     plt.rcParams['axes.unicode_minus'] = False
-    current_font_check_list = plt.rcParams.get('font.family', ['Unknown'])
-    current_font_check = current_font_check_list[0] if current_font_check_list else 'Unknown'
-    print(f"DEBUG (utils.py): Final Matplotlib font family for rendering: {current_font_check}")
     
-    # 최종적으로 설정된 폰트가 실제 한글을 지원하는지 (이름 기반으로) 다시 한번 확인
-    expected_korean_font_names_lower_check = ['nanumgothic', 'nanumbarungothic', 'nanumsquare', 'nanummyeongjo', 'noto sans cjk kr', 'malgun gothic', 'applegothic', 'apple sd gothic neo']
-    if not any(expected_name in current_font_check.lower() for expected_name in expected_korean_font_names_lower_check):
-        print(f"WARNING (utils.py): The final font '{current_font_check}' may NOT support Korean well. Expecting one of {expected_korean_font_names_lower_check}.")
-
+    final_font_family_list_check = plt.rcParams.get('font.family', ['Unknown'])
+    final_font_family_check = final_font_family_list_check[0] if final_font_family_list_check else 'Unknown'
+    st.sidebar.write(f"9. Final `plt.rcParams['font.family']` for rendering: **{final_font_family_check}**")
+    
+    expected_korean_fonts_check = ['nanumgothic', 'nanumbarungothic', 'nanumsquare', 'noto sans cjk kr', 'malgun gothic', 'applegothic', 'apple sd gothic neo']
+    if not any(expected_name in final_font_family_check.lower() for expected_name in expected_korean_fonts_check):
+        st.sidebar.error(
+             f" 최종적으로 설정된 폰트 '{final_font_family_check}'가 한글을 제대로 지원하지 않을 수 있습니다. "
+             "그래프의 한글이 깨질 가능성이 높습니다."
+        )
+    else:
+        st.sidebar.success(
+            f"최종 폰트 '{final_font_family_check}'가 한글을 지원할 것으로 보입니다."
+        )
+    st.sidebar.markdown("---") # 디버깅 섹션 끝
 
 # --- load_csv, load_geojson, load_csv_from_upload 함수는 이전 답변과 동일하게 유지 ---
 @st.cache_data
