@@ -10,3 +10,4 @@ streamlit-folium
 geopandas
 openpyxl
 altair
+fonts-nanum*
