@@ -1,12 +1,12 @@
 streamlit
 pandas
-folium
+numpy
 matplotlib
 seaborn
-numpy
-requests
-shapely
+folium
 streamlit-folium
+shapely
+requests
 geopandas
-openpyxl
 altair
+openpyxl
