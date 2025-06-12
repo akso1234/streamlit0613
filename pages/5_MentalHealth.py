@@ -140,7 +140,7 @@ def plot_pie_chart_by_year(all_conditions_summary_df, selected_year_int):
 
 # --- Streamlit 페이지 레이아웃 ---
 def run_mental_health_page():
-    st.title("🧠 서울시 연령별 정신질환 현황")
+    st.title("🧠 서울시 노인 정신질환 현황")
     set_korean_font()
 
     file_paths_mental_health = {
