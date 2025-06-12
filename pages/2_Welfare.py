@@ -17,6 +17,10 @@ from chart_utils import (
     draw_sheet5_charts
 )
 
+from utils import set_korean_font
+
+set_korean_font()
+
 # 복지시설 데이터를 읽을 때 필요한 'districts' 리스트
 districts = [
     "종로구","중구","용산구","성동구","광진구","동대문구","중랑구","성북구",
