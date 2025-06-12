@@ -8,6 +8,9 @@ from streamlit_folium import st_folium
 from utils import set_korean_font, load_csv, load_geojson # utils.py의 함수 임포트
 from shapely.geometry import shape, Polygon, MultiPolygon # 지도 라벨용
 import os # 파일 경로를 위해 추가
+from utils import set_korean_font
+
+set_korean_font()
 
 # --- 기존 데이터 전처리 및 추출 함수 ---
 @st.cache_data
