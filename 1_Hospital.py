@@ -13,6 +13,10 @@ from chart_utils import (
     draw_avg_beds_heatmap
 )
 
+from utils import set_korean_font
+
+set_korean_font()
+
 # Home.py에서 st.set_page_config를 이곳으로 옮깁니다.
 # 앱 전체에 대한 설정을 정의합니다.
 st.set_page_config(
