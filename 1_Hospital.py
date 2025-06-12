@@ -15,7 +15,6 @@ from chart_utils import (
 
 from utils import set_korean_font
 
-set_korean_font()
 
 # Home.py에서 st.set_page_config를 이곳으로 옮깁니다.
 # 앱 전체에 대한 설정을 정의합니다.
@@ -24,6 +23,8 @@ st.set_page_config(
     page_icon="🏥",                 # 앱 탭에 표시될 아이콘
     layout="wide"                  # 페이지 레이아웃을 'wide'로 설정
 )
+
+set_korean_font()
 
 def run_hospital_page():
     st.title("🏥 병원 관련 대시보드")
