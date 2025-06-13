@@ -1,18 +1,16 @@
 # --- START OF MODIFIED FILE chart_utils.py (히트맵 스타일 수정 포함) ---
-# from matplotlib import font_manager # utils.py에서 처리하므로 직접 사용 최소화
 import matplotlib.pyplot as plt
 import streamlit as st
 import altair as alt # Altair 예시 함수를 위해 유지
 import pandas as pd
 import numpy as np
-# import pandas as pd # 중복 임포트
 
 # ——————————————————————————————————————————————————
 # 한글 폰트 설정 (Matplotlib용)
 # 각 페이지 파일에서 utils.set_korean_font()를 호출하여 전역 설정을 하므로,
-# chart_utils.py에서는 이 부분을 제거하거나, 최소한으로 남깁니다.
+# chart_utils.py에서는 plt.rcParams['axes.unicode_minus'] = False 만 유지합니다.
 # ——————————————————————————————————————————————————
-plt.rcParams['axes.unicode_minus'] = False # 마이너스 폰트 깨짐 방지 설정은 유지
+plt.rcParams['axes.unicode_minus'] = False 
 # ——————————————————————————————————————————————————
 
 
@@ -84,10 +82,11 @@ def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
         for bar in bars:
             yval = bar.get_height()
             if yval > 0 : 
-                plt.text(bar.get_x() + bar.get_width()/2.0, yval + (df_plot[inst].max()*0.01 if not df_plot[inst].empty and df_plot[inst].max() >0 else 0.1), 
+                max_val_for_offset = df_plot[inst].max() if not df_plot[inst].empty else yval # offset 계산을 위한 max 값
+                plt.text(bar.get_x() + bar.get_width()/2.0, yval + (max_val_for_offset*0.01 if max_val_for_offset >0 else 0.1), 
                          f'{int(yval)}', ha='center', va='bottom', fontsize=9)
         
-        if not df_plot[inst].empty and df_plot[inst].max() > 0 : # 데이터가 있을 때만 ylim 설정
+        if not df_plot[inst].empty and df_plot[inst].max() > 0 :
              ax.set_ylim(0, df_plot[inst].max() * 1.15)
 
         plt.tight_layout() 
@@ -163,7 +162,7 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
         st.info("평균 병상 수 히트맵을 그릴 데이터가 없습니다.")
         return None 
 
-    types = ["종합병원", "병원", "요양병원"]
+    types = ["종합병원", "병원", "요양병원"] 
 
     if "gu" not in df_hosp.columns or "gu" not in df_beds.columns:
         st.error("draw_avg_beds_heatmap: df_hosp 또는 df_beds에 'gu' 컬럼이 없습니다.")
@@ -172,40 +171,41 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
     df_h = df_hosp[df_hosp["gu"] != "소계"].copy() 
     df_b = df_beds[df_beds["gu"] != "소계"].copy() 
 
-    df_h_indexed = df_h.set_index("gu")[[col for col in types if col in df_h.columns]].apply(pd.to_numeric, errors="coerce")
-    df_b_indexed = df_b.set_index("gu")[[col for col in types if col in df_b.columns]].apply(pd.to_numeric, errors="coerce")
+    df_h_indexed = df_h.set_index("gu")[[col for col in types if col in df_h.columns]]
+    df_b_indexed = df_b.set_index("gu")[[col for col in types if col in df_b.columns]]
+    
+    df_h_numeric = df_h_indexed.apply(pd.to_numeric, errors="coerce")
+    df_b_numeric = df_b_indexed.apply(pd.to_numeric, errors="coerce")
 
-    common_gus = df_h_indexed.index.intersection(df_b_indexed.index)
-    common_types_heatmap = [t for t in types if t in df_h_indexed.columns and t in df_b_indexed.columns] # 변수명 변경
+    common_gus = df_h_numeric.index.intersection(df_b_numeric.index)
+    common_types_heatmap = [t for t in types if t in df_h_numeric.columns and t in df_b_numeric.columns]
 
     if common_gus.empty or not common_types_heatmap:
         st.warning("draw_avg_beds_heatmap: 공통 자치구 또는 유형이 없어 히트맵을 생성할 수 없습니다.")
         return None
 
-    df_h_common = df_h_indexed.loc[common_gus, common_types_heatmap]
-    df_b_common = df_b_indexed.loc[common_gus, common_types_heatmap]
+    df_h_common = df_h_numeric.loc[common_gus, common_types_heatmap]
+    df_b_common = df_b_numeric.loc[common_gus, common_types_heatmap]
     
     df_avg = df_b_common.divide(df_h_common.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
-    # NaN 값은 -1 등으로 대체하지 않고 그대로 두어, imshow에서 기본 배경색으로 처리되도록 하거나,
-    # 또는 아래 주석 해제하여 특정 색으로 표시 (단, 이 경우 cmap.set_bad도 함께 사용)
-    # df_avg = df_avg.fillna(-1) # 이전 방식. 이미지에서는 '-'로 표시되므로 NaN이 적절할 수 있음.
 
     if df_avg.empty:
         st.info("평균 병상 수 계산 결과가 비어 히트맵을 그릴 수 없습니다.")
         return None
 
-    fig, ax = plt.subplots(figsize=(10, 12 if len(df_avg.index) > 15 else 9), dpi=120)
+    fig, ax = plt.subplots(figsize=(10, 12 if len(df_avg.index) > 15 else 9), dpi=120) 
     
-    cmap = plt.cm.get_cmap("Blues", 10) # 이미지와 유사한 파란색 계열
-    # cmap.set_bad(color='lightgray') # 만약 df_avg.fillna(-1)을 사용하지 않고 NaN을 다른 색으로 처리하고 싶다면
+    cmap = plt.cm.get_cmap("Blues", 10) 
+    cmap.set_bad(color='whitesmoke') 
 
     valid_data_for_scale = df_avg.values[~np.isnan(df_avg.values) & ~np.isinf(df_avg.values)]
-    vmin_val = 0 # 평균 병상수는 0 이상이므로
+    vmin_val = 0 
     vmax_val = np.max(valid_data_for_scale) if valid_data_for_scale.size > 0 else 1
-    if vmin_val == vmax_val and valid_data_for_scale.size > 0: vmax_val = vmin_val + 1
+    if vmin_val == vmax_val and valid_data_for_scale.size > 0: 
+        vmax_val = vmin_val + 1 
 
     im = ax.imshow(
-        df_avg.values, # NaN 값을 그대로 전달 (cmap.set_bad()와 함께 사용 가능)
+        df_avg.values, 
         cmap=cmap,
         aspect="auto", 
         vmin=vmin_val, 
@@ -220,19 +220,19 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
     ax.set_ylabel("자치구", fontsize=13, fontweight='bold', labelpad=10)
     ax.set_title("구별 기관 유형별 평균 병상 수", fontsize=16, fontweight='bold', pad=15)
 
-    # 셀 내부 텍스트
     for i in range(len(df_avg.index)):
         for j in range(len(df_avg.columns)):
             val = df_avg.iloc[i, j]
             text_to_display = "-" 
             if pd.notna(val) and not np.isinf(val):
-                text_to_display = f"{val:.1f}"
+                text_to_display = f"{val:.1f}" 
             
             cell_color_value = val
-            text_color = "black" # 기본값
-            if pd.notna(cell_color_value) and not np.isinf(cell_color_value) and vmax_val > vmin_val:
+            text_color = "black" 
+            if pd.notna(cell_color_value) and not np.isinf(cell_color_value) and vmax_val > vmin_val :
                 normalized_val = (cell_color_value - vmin_val) / (vmax_val - vmin_val)
-                text_color = "white" if normalized_val > 0.55 else "black" # Blues 컬러맵은 값이 클수록 진해짐
+                if normalized_val > 0.55: 
+                    text_color = "white"
             
             ax.text(j, i, text_to_display,
                     ha="center", va="center",
@@ -243,7 +243,7 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
     ax.grid(which="minor", color="grey", linestyle='-', linewidth=0.5) 
     ax.tick_params(which="minor", bottom=False, left=False)
 
-    cbar = fig.colorbar(im, ax=ax, orientation="vertical", fraction=0.046, pad=0.05)
+    cbar = fig.colorbar(im, ax=ax, orientation="vertical", fraction=0.046, pad=0.05, aspect=30) 
     cbar.ax.tick_params(labelsize=9)
     cbar.set_label("평균 병상 수", fontsize=11, fontweight='bold', labelpad=10)
 
@@ -254,9 +254,9 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
 
 def draw_sheet0_charts(
     df_metrics,
-    figsize1: tuple = (14, 6),
-    figsize2: tuple = (14, 6),
-    figsize3: tuple = (14, 7),
+    figsize1: tuple = (14, 6), 
+    figsize2: tuple = (14, 6), 
+    figsize3: tuple = (14, 7), 
     dpi: int = 100
 ) -> None:
     if df_metrics is None or df_metrics.empty:
