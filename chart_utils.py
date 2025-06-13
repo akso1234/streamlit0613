@@ -1,21 +1,23 @@
-# --- START OF chart_utils.py ---
-from matplotlib import font_manager # 더 이상 직접적인 폰트 파일 로드에 사용하지 않음
+from matplotlib import font_manager # 이 import는 이제 직접적인 폰트 경로 설정에는 사용되지 않음
 import matplotlib.pyplot as plt
 import streamlit as st
-import altair as alt
+import altair as alt # Altair 예시 함수를 위해 유지
 import pandas as pd
 import numpy as np
 # import pandas as pd # 중복 임포트 제거
 
 # ——————————————————————————————————————————————————
 # 한글 폰트 설정 (Matplotlib용)
-# utils.py의 set_korean_font() 함수가 각 페이지 파일에서 호출되어
-# Matplotlib의 전역 설정을 이미 완료했다고 가정합니다.
-# 따라서 chart_utils.py에서는 직접적인 폰트 경로 설정이나
-# plt.rc('font', family=...) 설정을 반복하지 않습니다.
-# 마이너스 부호 깨짐 방지만 유지합니다.
+# 이제 각 페이지 파일에서 utils.set_korean_font()를 호출하여 전역 설정을 하므로,
+# chart_utils.py에서는 이 부분을 제거하거나, 최소한으로 남깁니다.
+# plt.rcParams['axes.unicode_minus'] = False 는 set_korean_font()에서도 처리하므로 중복될 수 있으나,
+# 여기서도 명시적으로 두는 것이 해롭지는 않습니다.
 # ——————————————————————————————————————————————————
-plt.rcParams['axes.unicode_minus'] = False # 마이너스 폰트 깨짐 방지
+# font_path = "/System/Library/Fonts/AppleSDGothicNeo.ttc" # macOS 특정 경로 제거
+# font_name = font_manager.FontProperties(fname=font_path).get_name() # 제거
+# font_manager.fontManager.addfont(font_path) # 제거
+# plt.rcParams['font.family'] = font_name # 제거
+plt.rcParams['axes.unicode_minus'] = False # 이 설정은 유지
 # ——————————————————————————————————————————————————
 
 
@@ -53,511 +55,580 @@ def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
     """
     df_hosp: load_raw_data()에서 반환된 DataFrame.
              컬럼에는 'gu', '소계', '종합병원', '병원', '의원', '요양병원'이 있어야 함.
-
-    '소계'라는 gu(구 이름)가 포함되어 있다면, 그 행을 제외하고 그래프를 그립니다.
     """
-    # -----------------------------
-    # 1) '소계' 구 이름이 있다면 제거
-    # -----------------------------
+    if df_hosp is None or df_hosp.empty:
+        st.info("의료기관 수 데이터가 없어 막대 그래프를 그릴 수 없습니다.")
+        return
+
     df_plot = df_hosp.copy()
     if "gu" in df_plot.columns:
         df_plot = df_plot[df_plot["gu"] != "소계"].reset_index(drop=True)
+    else: # 'gu' 컬럼이 없으면 진행 불가
+        st.error("draw_hospital_count_bar_charts: df_hosp에 'gu' 컬럼이 없습니다.")
+        return
 
-    # -----------------------------
-    # 2) 숫자형으로 변환 (NaN 방지)
-    # -----------------------------
+
     types = ["소계", "종합병원", "병원", "의원", "요양병원"]
+    # 필요한 모든 타입 컬럼이 있는지 확인
+    missing_types = [t for t in types if t not in df_plot.columns]
+    if missing_types:
+        st.warning(f"draw_hospital_count_bar_charts: df_plot에 다음 컬럼이 없습니다: {missing_types}. 해당 그래프는 생략될 수 있습니다.")
+
+
     for inst in types:
+        if inst not in df_plot.columns: # 컬럼이 없으면 해당 그래프 생략
+            continue
         df_plot[inst] = pd.to_numeric(df_plot[inst], errors="coerce").fillna(0)
 
-    # -----------------------------
-    # 3) inst별로 Figure를 하나씩 생성
-    # -----------------------------
-    for inst in types:
-        fig, ax = plt.subplots(figsize=(12, 4))
-        ax.bar(df_plot["gu"], df_plot[inst])
-        ax.set_title(f"구별 {inst} 수", fontsize=14)
+        fig, ax = plt.subplots(figsize=(12, 5)) # 높이 살짝 증가
+        bars = ax.bar(df_plot["gu"], df_plot[inst], color='skyblue') # 색상 지정
+        ax.set_title(f"구별 {inst} 수", fontsize=15) # 폰트 크기 조정
         ax.set_xlabel("자치구", fontsize=12)
         ax.set_ylabel("기관 수", fontsize=12)
-        plt.setp(ax.get_xticklabels(), rotation=90)
+        plt.xticks(rotation=45, ha="right", fontsize=10) # x축 레이블 회전 및 정렬, 폰트 크기
+        plt.yticks(fontsize=10) # y축 레이블 폰트 크기
+        ax.grid(axis='y', linestyle='--', alpha=0.7) # y축 그리드 추가
+
+        # 막대 위에 값 표시 (선택 사항)
+        for bar in bars:
+            yval = bar.get_height()
+            if yval > 0 : # 0보다 큰 값만 표시
+                plt.text(bar.get_x() + bar.get_width()/2.0, yval + (df_plot[inst].max()*0.01 if df_plot[inst].max() >0 else 0.1), 
+                         f'{int(yval)}', ha='center', va='bottom', fontsize=9)
+        
+        max_y_val = df_plot[inst].max()
+        if max_y_val > 0:
+            ax.set_ylim(0, max_y_val * 1.1) # y축 범위 살짝 늘리기
+
         plt.tight_layout()
         st.pyplot(fig)
 
 def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
-    """
-    df_hosp: load_raw_data()에서 반환된 DataFrame (컬럼: 'gu', '종합병원', '병원', '의원', '요양병원', ...)
-    df_beds: load_raw_data()에서 반환된 DataFrame (컬럼: 'gu', '종합병원', '병원', '의원', '요양병원', ...)
-    
-    - (A) 전체 의료기관 유형별 전체 병상 수 막대그래프
-    - (B) 전체 의료기관 유형별 전체 병원 수 막대그래프
-    - (C) 의료기관 유형별 병원당 평균 병상 수 막대그래프
-    """
-    # 1) '소계' 구 이름을 제거하고, 숫자로 변환
+    if df_hosp is None or df_hosp.empty or df_beds is None or df_beds.empty:
+        st.info("병원 수 또는 병상 수 데이터가 없어 집계 그래프를 그릴 수 없습니다.")
+        return
+
     df_h = df_hosp.copy()
     df_b = df_beds.copy()
-    # '소계' 행 제거
+    
     if "gu" in df_h.columns:
         df_h = df_h[df_h["gu"] != "소계"].reset_index(drop=True)
     if "gu" in df_b.columns:
         df_b = df_b[df_b["gu"] != "소계"].reset_index(drop=True)
 
     types = ["종합병원", "병원", "의원", "요양병원"]
-
-    # 2) 전체 병원 수 total_hosp 및 전체 병상 수 total_beds 계산
+    missing_cols_h = [t for t in types if t not in df_h.columns]
+    missing_cols_b = [t for t in types if t not in df_b.columns]
+    if missing_cols_h or missing_cols_b:
+        st.warning(f"draw_aggregate_hospital_bed_charts: 데이터에 필요한 유형 컬럼이 부족합니다 (병원수: {missing_cols_h}, 병상수: {missing_cols_b}).")
+        # 일부 컬럼만으로 계산 시도 또는 중단
+        # 여기서는 일단 진행하되, .get(t, 0) 등으로 안전하게 접근
+    
     total_hosp = {}
     total_beds = {}
     for t in types:
-        # df_h[t]와 df_b[t]를 숫자형으로 변환 후 합산
-        total_hosp[t] = pd.to_numeric(df_h[t], errors="coerce").sum()
-        total_beds[t] = pd.to_numeric(df_b[t], errors="coerce").sum()
+        total_hosp[t] = pd.to_numeric(df_h.get(t, 0), errors="coerce").sum() # .get으로 안전하게
+        total_beds[t] = pd.to_numeric(df_b.get(t, 0), errors="coerce").sum()
 
-    # 3) 평균 병상 수 avg_beds 계산 (병상수/병원수)
     avg_beds = {}
     for t in types:
-        # 병원 수가 0일 경우를 방지
-        if total_hosp[t] and total_hosp[t] > 0:
-            avg_beds[t] = total_beds[t] / total_hosp[t]
+        if total_hosp.get(t, 0) > 0: # .get으로 안전하게
+            avg_beds[t] = total_beds.get(t, 0) / total_hosp.get(t, 0)
         else:
             avg_beds[t] = 0
 
-    # ——————————————————————————————————
-    # (A) 의료기관 유형별 전체 병원 수
-    # ——————————————————————————————————
-    fig2, ax2 = plt.subplots(figsize=(8, 4))
-    ax2.bar(total_hosp.keys(), total_hosp.values(), color='tab:green')
-    ax2.set_title('의료기관 유형별 전체 병원 수', fontsize=14)
+    # 차트 디자인 일관성 유지
+    bar_colors = {'병원 수': 'mediumseagreen', '병상 수': 'cornflowerblue', '평균 병상 수': 'lightcoral'}
+    
+    fig2, ax2 = plt.subplots(figsize=(8, 4.5)) # 높이 살짝 조정
+    ax2.bar(total_hosp.keys(), total_hosp.values(), color=bar_colors['병원 수'])
+    ax2.set_title('의료기관 유형별 전체 병원 수', fontsize=15)
     ax2.set_ylabel('병원 수', fontsize=12)
     ax2.set_xlabel('기관 유형', fontsize=12)
+    plt.xticks(fontsize=10); plt.yticks(fontsize=10)
+    ax2.grid(axis='y', linestyle=':', alpha=0.7)
     plt.tight_layout()
     st.pyplot(fig2)
 
-    # ——————————————————————————————————
-    # (B) 의료기관 유형별 전체 병상 수
-    # ——————————————————————————————————
-    fig1, ax1 = plt.subplots(figsize=(8, 4))
-    ax1.bar(total_beds.keys(), total_beds.values(), color='tab:blue')
-    ax1.set_title('의료기관 유형별 전체 병상 수', fontsize=14)
+    fig1, ax1 = plt.subplots(figsize=(8, 4.5))
+    ax1.bar(total_beds.keys(), total_beds.values(), color=bar_colors['병상 수'])
+    ax1.set_title('의료기관 유형별 전체 병상 수', fontsize=15)
     ax1.set_ylabel('병상 수', fontsize=12)
     ax1.set_xlabel('기관 유형', fontsize=12)
+    plt.xticks(fontsize=10); plt.yticks(fontsize=10)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')) # y축 콤마 포맷
+    ax1.grid(axis='y', linestyle=':', alpha=0.7)
     plt.tight_layout()
     st.pyplot(fig1)
 
-    # ——————————————————————————————————
-    # (C) 의료기관 유형별 병원당 평균 병상 수
-    # ——————————————————————————————————
-    fig3, ax3 = plt.subplots(figsize=(8, 4))
-    ax3.bar(avg_beds.keys(), avg_beds.values(), color='tab:orange')
-    ax3.set_title('의료기관 유형별 병원당 평균 병상 수', fontsize=14)
+    fig3, ax3 = plt.subplots(figsize=(8, 4.5))
+    ax3.bar(avg_beds.keys(), avg_beds.values(), color=bar_colors['평균 병상 수'])
+    ax3.set_title('의료기관 유형별 병원당 평균 병상 수', fontsize=15)
     ax3.set_ylabel('평균 병상 수', fontsize=12)
     ax3.set_xlabel('기관 유형', fontsize=12)
+    plt.xticks(fontsize=10); plt.yticks(fontsize=10)
+    ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.1f}')) # y축 소수점 한자리 콤마
+    ax3.grid(axis='y', linestyle=':', alpha=0.7)
     plt.tight_layout()
     st.pyplot(fig3)
 
-# --- (1) 더 잘 보이도록 폰트 사이즈 조정 및 대비 설정 함수 ---
 def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
-    """
-    df_hosp: 'gu', '종합병원', '병원', '요양병원' 컬럼을 포함
-    df_beds: 'gu', '종합병원', '병원', '요양병원' 컬럼을 포함
-    """
+    if df_hosp is None or df_hosp.empty or df_beds is None or df_beds.empty:
+        st.info("평균 병상 수 히트맵을 그릴 데이터가 없습니다.")
+        return None # None 반환 명시
 
-    # 1) '소계' 구 이름 제거
-    df_h = df_hosp.copy().reset_index(drop=True)
-    df_b = df_beds.copy().reset_index(drop=True)
-    if "gu" in df_h.columns:
-        df_h = df_h[df_h["gu"] != "소계"].reset_index(drop=True)
-    if "gu" in df_b.columns:
-        df_b = df_b[df_b["gu"] != "소계"].reset_index(drop=True)
+    types_heatmap = ["종합병원", "병원", "요양병원"] # 의원 제외 (원본과 동일하게)
 
-    # 2) 숫자형으로 변환
-    types = ["종합병원", "병원", "요양병원"]
-    for t in types:
-        df_h[t] = pd.to_numeric(df_h[t], errors="coerce").fillna(0)
-        df_b[t] = pd.to_numeric(df_b[t], errors="coerce").fillna(0)
+    # 'gu' 컬럼 존재 확인 및 '소계' 행 제거
+    if "gu" not in df_hosp.columns or "gu" not in df_beds.columns:
+        st.error("draw_avg_beds_heatmap: df_hosp 또는 df_beds에 'gu' 컬럼이 없습니다.")
+        return None
+        
+    df_h = df_hosp[df_hosp["gu"] != "소계"].copy()
+    df_b = df_beds[df_beds["gu"] != "소계"].copy()
 
-    # 3) 구 × 유형별 평균병상/병원 계산
-    records = []
-    for idx, row in df_h.iterrows():
-        gu = row["gu"]
-        for t in types:
-            hosp_cnt = row[t]
-            bed_cnt = df_b.loc[idx, t] # df_h와 df_b의 행 순서가 동일하다고 가정
-            avg_bed = bed_cnt / hosp_cnt if hosp_cnt and hosp_cnt > 0 else np.nan
-            records.append({
-                "gu": gu,
-                "type": t,
-                "평균병상/병원": avg_bed
-            })
-    stats = pd.DataFrame(records)
+    # 필요한 유형 컬럼이 있는지 확인
+    missing_h = [t for t in types_heatmap if t not in df_h.columns]
+    missing_b = [t for t in types_heatmap if t not in df_b.columns]
+    if missing_h or missing_b:
+        st.warning(f"draw_avg_beds_heatmap: 히트맵 생성에 필요한 유형 컬럼이 부족합니다. (병원수: {missing_h}, 병상수: {missing_b})")
+        # 필요한 컬럼만으로 진행하도록 types_heatmap 조정 또는 오류 처리
+        types_heatmap = [t for t in types_heatmap if t in df_h.columns and t in df_b.columns]
+        if not types_heatmap:
+            st.error("draw_avg_beds_heatmap: 히트맵을 그릴 유효한 유형 컬럼이 없습니다.")
+            return None
 
-    # 4) Pivot
-    pivot = stats.pivot(index="gu", columns="type", values="평균병상/병원")
+    df_h_indexed = df_h.set_index("gu")[types_heatmap].apply(pd.to_numeric, errors="coerce")
+    df_b_indexed = df_b.set_index("gu")[types_heatmap].apply(pd.to_numeric, errors="coerce")
+    
+    # 공통 'gu'에 대해서만 계산
+    common_gus = df_h_indexed.index.intersection(df_b_indexed.index)
+    if common_gus.empty:
+        st.warning("draw_avg_beds_heatmap: 공통 자치구가 없어 히트맵을 생성할 수 없습니다.")
+        return None
 
-    # 5) Matplotlib으로 히트맵 그리기
-    heat_data = pivot.values  # shape: (n_gu, 3)
+    df_h_common = df_h_indexed.loc[common_gus]
+    df_b_common = df_b_indexed.loc[common_gus]
 
-    # ———— 5.1) Figure 크기 및 DPI 키우기 ————
-    fig, ax = plt.subplots(figsize=(12, 10), dpi=100)
+    df_avg = df_b_common.divide(df_h_common.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan) # 0으로 나누기 방지
+    df_avg = df_avg.fillna(0) # NaN은 0으로 표시 (선택 사항)
 
-    # ———— 5.2) 컬러맵을 대비가 조금 더 진한 Blues로 설정 ————
-    cmap = plt.cm.Blues
+    if df_avg.empty:
+        st.info("평균 병상 수 계산 결과가 비어 히트맵을 그릴 수 없습니다.")
+        return None
 
-    im = ax.imshow(heat_data, cmap=cmap, aspect="auto", vmin=np.nanmin(heat_data), vmax=np.nanmax(heat_data))
+    fig, ax = plt.subplots(figsize=(10, 12 if len(df_avg.index) > 15 else 8), dpi=100) # 크기 조정
+    cmap = plt.cm.get_cmap("viridis_r", 10) # 컬러맵 변경 및 단계 조절 (역순 viridis)
 
-    # 축 눈금 설정
-    ax.set_xticks(np.arange(len(types)))
-    ax.set_xticklabels(types, fontsize=14, fontweight='bold')
-    ax.set_yticks(np.arange(len(pivot.index)))
-    ax.set_yticklabels(pivot.index, fontsize=12)
+    im = ax.imshow(
+        df_avg.values,
+        cmap=cmap,
+        aspect="auto",
+        vmin=0, # 최소값을 0으로 고정 (음수 방지 및 색상 스케일 일관성)
+        vmax=np.nanmax(df_avg.values) if not df_avg.isnull().all().all() else 1 # 전체가 NaN이 아닐때만 vmax 설정
+    )
 
-    # 축 레이블(제목) 설정
-    ax.set_xlabel("기관 유형", fontsize=16, fontweight='bold')
-    ax.set_ylabel("자치구", fontsize=16, fontweight='bold')
-    ax.set_title("구별 기관 유형별 평균 병상 수", fontsize=18, fontweight='bold')
+    ax.set_xticks(np.arange(len(df_avg.columns))) # types_heatmap 대신 df_avg.columns 사용
+    ax.set_xticklabels(df_avg.columns, fontsize=12, fontweight='bold') # 폰트 크기 조정
+    ax.set_yticks(np.arange(len(df_avg.index)))
+    ax.set_yticklabels(df_avg.index, fontsize=10) # 폰트 크기 조정
+    ax.set_xlabel("기관 유형", fontsize=14, fontweight='bold')
+    ax.set_ylabel("자치구", fontsize=14, fontweight='bold')
+    ax.set_title("구별 기관 유형별 평균 병상 수", fontsize=16, fontweight='bold')
 
-    # ———— 5.3) 셀 내부 값(annot)을 배경 대비에 따라 색상 동적으로 조정 ————
-    vmax_val = np.nanmax(heat_data) # 변수명 변경 (vmax는 함수일 수 있음)
-    vmin_val = np.nanmin(heat_data) # 변수명 변경
-
-    for i in range(heat_data.shape[0]):
-        for j in range(heat_data.shape[1]):
-            val = heat_data[i, j]
-            if np.isnan(val):
-                text = "-"
-            else:
-                text = f"{val:.1f}"
-            
-            # 대비 기준(텍스트 색상): 
-            # 값이 전체 범위의 중간값보다 크면 흰색, 작거나 같으면 검정색
-            # nan 값 처리 추가
+    data_values = df_avg.values
+    min_val_for_text = np.nanmin(data_values[~np.isinf(data_values)]) if np.sum(~np.isnan(data_values) & ~np.isinf(data_values)) > 0 else 0
+    max_val_for_text = np.nanmax(data_values[~np.isinf(data_values)]) if np.sum(~np.isnan(data_values) & ~np.isinf(data_values)) > 0 else 1
+    
+    for (i, j), val in np.ndenumerate(data_values):
+        text = "-" if np.isnan(val) or np.isinf(val) else f"{val:.1f}"
+        # 텍스트 색상 결정 로직 개선
+        if pd.notna(val) and not np.isinf(val) and max_val_for_text > min_val_for_text:
+            normalized_val = (val - min_val_for_text) / (max_val_for_text - min_val_for_text)
+            text_color = "white" if normalized_val > 0.6 else ("black" if normalized_val < 0.3 else "grey") # 중간값에 가까우면 회색
+        else:
             text_color = "black" # 기본값
-            if not np.isnan(val) and not np.isnan(vmin_val) and not np.isnan(vmax_val) and (vmax_val != vmin_val):
-                 if val > (vmin_val + vmax_val) / 2:
-                    text_color = "white"
-            elif not np.isnan(val) and val > 0.5: # vmax, vmin이 모두 nan일 경우 대비 (0~1 사이 값이라 가정)
-                 text_color = "white"
 
+        ax.text(j, i, text, ha="center", va="center", color=text_color, fontsize=9, fontweight='normal') # 폰트 크기/굵기 조정
 
-            ax.text(
-                j, i, text,
-                ha="center", va="center",
-                color=text_color,
-                fontsize=12,
-                fontweight='bold'
-            )
-
-    # ———— 5.4) 축 눈금을 그리드처럼 보이도록 그리기 ————
-    ax.set_xticks(np.arange(len(types) + 1) - 0.5, minor=True)
-    ax.set_yticks(np.arange(len(pivot.index) + 1) - 0.5, minor=True)
-    ax.grid(which="minor", color="gray", linestyle='-', linewidth=1)
+    ax.set_xticks(np.arange(len(df_avg.columns) + 1) - 0.5, minor=True)
+    ax.set_yticks(np.arange(len(df_avg.index) + 1) - 0.5, minor=True)
+    ax.grid(which="minor", color="lightgray", linestyle='-', linewidth=0.8) # 그리드 색상/두께 조정
     ax.tick_params(which="minor", bottom=False, left=False)
 
-    # ———— 5.5) 컬러바 추가 ————
     cbar = fig.colorbar(im, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
-    cbar.ax.tick_params(labelsize=12)
-    cbar.set_label("평균 병상 수", fontsize=14, fontweight='bold')
+    cbar.ax.tick_params(labelsize=10)
+    cbar.set_label("평균 병상 수", fontsize=12, fontweight='bold')
 
     plt.tight_layout()
     st.pyplot(fig)
-
-    return pivot
+    return df_avg
 
 
 def draw_sheet0_charts(
     df_metrics,
-    figsize1: tuple = (12, 5),
-    figsize2: tuple = (15, 5),
-    figsize3: tuple = (14, 6),
-    dpi: int = 100
-) -> None:
-    if df_metrics is None or df_metrics.empty: # 입력 데이터 None 또는 empty 체크 추가
-        st.warning("노인주거복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
-        return
-    regions = df_metrics.index.tolist()
-    x = np.arange(len(regions))
-    width = 0.35
-    w = 0.2
-
-    # (1) 정원·현원·추가 수용
-    fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
-    ax1.bar(x - width, df_metrics['capacity'],   width=width, label='정원', color='#55A868')
-    ax1.bar(x,         df_metrics['occupancy'], width=width, label='현원', color='#C44E52')
-    ax1.bar(x + width, df_metrics['additional'], width=width, label='추가 수용', color='#EE8454')
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax1.set_ylabel('명', fontsize=12)
-    ax1.set_title('구별 노인주거복지시설: 정원·현원·추가 수용 가능 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax1.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig1)
-
-    # (2) 시설수·종사자수
-    fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
-    ax2.bar(x - w/2, df_metrics['facility'], width=w, label='시설수', color='#4C72B0')
-    ax2.bar(x + w/2, df_metrics['staff'],    width=w, label='종사자수', color='#C44E52')
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=8) # x축 레이블 추가
-    ax2.set_title('구별 노인주거복지시설 시설수·종사자수', 
-                  fontsize=14, fontweight='bold')
-    ax2.set_ylabel('개소 / 명', fontsize=12) # Y축 레이블 수정
-    ax2.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig2)
-
-    # (3) 정원/종사자 vs 현원/종사자 비율
-    fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
-    ax3.bar(x - w/2, df_metrics['cap_per_staff'], width=w, label='정원/종사자수 비율', color='#55A868')
-    ax3.bar(x + w/2, df_metrics['occ_per_staff'], width=w, label='현원/종사자수 비율', color='#8172B2')
-    ax3.set_xticks(x)
-    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax3.set_ylabel('1명당 케어 인원수', fontsize=12)
-    ax3.set_title('구별 노인주거복지시설 정원 vs 현원 1명당 케어 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax3.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig3)
-
-def draw_sheet1_charts(
-    df_metrics,
-    figsize1: tuple = (12, 5),
-    figsize2: tuple = (15, 5),
-    figsize3: tuple = (14, 6),
+    figsize1: tuple = (14, 6), # 크기 조정
+    figsize2: tuple = (14, 6), # 크기 조정
+    figsize3: tuple = (14, 7), # 크기 조정
     dpi: int = 100
 ) -> None:
     if df_metrics is None or df_metrics.empty:
-        st.warning("노인의료복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
+        st.info("노인주거복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
         return
+        
     regions = df_metrics.index.tolist()
     x = np.arange(len(regions))
-    width = 0.35
-    w = 0.2
+    n_regions = len(regions)
+    
+    # 막대 너비 동적 조절 (너무 빽빽하지 않게)
+    base_width = 0.8 # 전체 x축 공간에서 막대가 차지할 비율
+    num_groups_fig1 = 3
+    bar_width_fig1 = base_width / num_groups_fig1 * 0.8 # 그룹 간 간격 고려
 
     # (1) 정원·현원·추가 수용
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
-    ax1.bar(x - width, df_metrics['capacity'],   width=width, label='정원', color='#55A868')
-    ax1.bar(x,         df_metrics['occupancy'], width=width, label='현원', color='#C44E52')
-    ax1.bar(x + width, df_metrics['additional'], width=width, label='추가 수용', color='#EE8454')
+    rects1 = ax1.bar(x - bar_width_fig1, df_metrics['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
+    rects2 = ax1.bar(x,                  df_metrics['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
+    rects3 = ax1.bar(x + bar_width_fig1, df_metrics['additional'], width=bar_width_fig1, label='추가 수용', color='lightgreen')
+    
     ax1.set_xticks(x)
-    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax1.set_ylabel('명', fontsize=12)
-    ax1.set_title('구별 노인의료복지시설: 정원·현원·추가 수용 가능 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax1.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig1)
+    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax1.set_ylabel('인원 수 (명)', fontsize=12)
+    ax1.set_title('구별 노인주거복지시설: 정원·현원·추가 수용 가능 인원', fontsize=15, fontweight='bold')
+    ax1.legend(fontsize=10, loc='upper right')
+    ax1.grid(axis='y', linestyle=':', alpha=0.7)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
+
 
     # (2) 시설수·종사자수
+    num_groups_fig2 = 2
+    bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
-    ax2.bar(x - w/2, df_metrics['facility'], width=w, label='시설수', color='#4C72B0')
-    ax2.bar(x + w/2, df_metrics['staff'],    width=w, label='종사자수', color='#C44E52')
+    rects4 = ax2.bar(x - bar_width_fig2/2, df_metrics['facility'], width=bar_width_fig2, label='시설수 (개소)', color='skyblue')
+    # 종사자수는 다른 y축 사용 (스케일 차이 클 경우)
+    ax2b = ax2.twinx()
+    rects5 = ax2b.bar(x + bar_width_fig2/2, df_metrics['staff'],    width=bar_width_fig2, label='종사자수 (명)', color='lightcoral')
+    
     ax2.set_xticks(x)
-    ax2.set_ylabel('개소 / 명', fontsize=12) # Y축 레이블 수정
-    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax2.set_title('구별 노인의료복지시설 시설수·종사자수', 
-                  fontsize=14, fontweight='bold')
-    ax2.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig2)
+    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax2.set_title('구별 노인주거복지시설: 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='skyblue')
+    ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='lightcoral')
+    ax2.tick_params(axis='y', labelcolor='skyblue')
+    ax2b.tick_params(axis='y', labelcolor='lightcoral')
+    # 범례 통합
+    lines, labels = ax2.get_legend_handles_labels()
+    lines2, labels2 = ax2b.get_legend_handles_labels()
+    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    ax2.grid(axis='y', linestyle=':', alpha=0.3)
+
 
     # (3) 정원/종사자 vs 현원/종사자 비율
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
-    ax3.bar(x - w/2, df_metrics['cap_per_staff'], width=w, label='정원/종사자수 비율', color='#55A868')
-    ax3.bar(x + w/2, df_metrics['occ_per_staff'], width=w, label='현원/종사자수 비율', color='#8172B2')
+    rects6 = ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
+    rects7 = ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
+    
     ax3.set_xticks(x)
-    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax3.set_ylabel('1명당 케어 인원수', fontsize=12)
-    ax3.set_title('구별 노인의료복지시설 정원 vs 현원 1명당 케어 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax3.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig3)
+    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
+    ax3.set_title('구별 노인주거복지시설: 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
+    ax3.legend(fontsize=10, loc='upper right')
+    ax3.grid(axis='y', linestyle=':', alpha=0.7)
+    ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
+
+    for fig_item in [fig1, fig2, fig3]: # 모든 차트에 tight_layout 적용
+        fig_item.tight_layout() 
+        st.pyplot(fig_item)
+
+
+def draw_sheet1_charts(
+    df_metrics,
+    figsize1: tuple = (14, 6),
+    figsize2: tuple = (14, 6),
+    figsize3: tuple = (14, 7),
+    dpi: int = 100
+) -> None:
+    if df_metrics is None or df_metrics.empty:
+        st.info("노인의료복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
+        return
+
+    regions = df_metrics.index.tolist()
+    x = np.arange(len(regions))
+    n_regions = len(regions)
+    base_width = 0.8
+    num_groups_fig1 = 3
+    bar_width_fig1 = base_width / num_groups_fig1 * 0.8
+
+    fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
+    ax1.bar(x - bar_width_fig1, df_metrics['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
+    ax1.bar(x,                  df_metrics['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
+    ax1.bar(x + bar_width_fig1, df_metrics['additional'], width=bar_width_fig1, label='추가 수용', color='lightgreen')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax1.set_ylabel('인원 수 (명)', fontsize=12)
+    ax1.set_title('구별 노인의료복지시설: 정원·현원·추가 수용 가능 인원', fontsize=15, fontweight='bold')
+    ax1.legend(fontsize=10, loc='upper right')
+    ax1.grid(axis='y', linestyle=':', alpha=0.7)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
+
+    num_groups_fig2 = 2
+    bar_width_fig2 = base_width / num_groups_fig2 * 0.7
+    fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
+    ax2.bar(x - bar_width_fig2/2, df_metrics['facility'], width=bar_width_fig2, label='시설수 (개소)', color='skyblue')
+    ax2b = ax2.twinx()
+    ax2b.bar(x + bar_width_fig2/2, df_metrics['staff'],    width=bar_width_fig2, label='종사자수 (명)', color='lightcoral')
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax2.set_title('구별 노인의료복지시설: 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='skyblue')
+    ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='lightcoral')
+    ax2.tick_params(axis='y', labelcolor='skyblue')
+    ax2b.tick_params(axis='y', labelcolor='lightcoral')
+    lines, labels = ax2.get_legend_handles_labels()
+    lines2, labels2 = ax2b.get_legend_handles_labels()
+    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    ax2.grid(axis='y', linestyle=':', alpha=0.3)
+
+    fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
+    ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
+    ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
+    ax3.set_xticks(x)
+    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
+    ax3.set_title('구별 노인의료복지시설: 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
+    ax3.legend(fontsize=10, loc='upper right')
+    ax3.grid(axis='y', linestyle=':', alpha=0.7)
+    ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
+
+    for fig_item in [fig1, fig2, fig3]:
+        fig_item.tight_layout()
+        st.pyplot(fig_item)
 
 
 def draw_nursing_csv_charts(
     df_welf: pd.DataFrame,
     df_centers: pd.DataFrame,
-    figsize1: tuple = (14, 5),
+    figsize1: tuple = (14, 6), # 크기 조정
     figsize2: tuple = (14, 5),
     dpi: int = 100
 ) -> None:
-    """
-    load_nursing_sheet1()이 반환한 두 DataFrame(df_welf, df_centers)을 
-    입력받아 다음 두 차트를 Streamlit에 렌더링합니다:
-      1) 노인복지관 시설수 vs 종사자수
-      2) 경로당+노인교실 합계(시설수)
-    """
-    # df_welf 또는 df_centers가 None이거나 비어있을 경우 경고 메시지 후 종료
-    if (df_welf is None or df_welf.empty) and (df_centers is None or df_centers.empty):
-        st.warning("노인여가복지시설(CSV) 데이터가 없어 차트를 그릴 수 없습니다.")
+    if (df_welf is None or df_welf.empty) and \
+       (df_centers is None or df_centers.empty): # 둘 다 없으면 경고
+        st.info("노인여가복지시설(CSV) 데이터가 없어 차트를 그릴 수 없습니다.")
         return
-        
-    # df_welf가 유효할 때만 첫 번째 차트 그리기
+
     if df_welf is not None and not df_welf.empty:
         regions_welf = df_welf.index.tolist()
         x_welf = np.arange(len(regions_welf))
-        w = 0.4
+        n_regions_welf = len(regions_welf)
+        base_width_welf = 0.8
+        num_groups_welf = 2
+        bar_width_welf = base_width_welf / num_groups_welf * 0.7
 
         fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
-        ax1.bar(x_welf - w/2, df_welf['facility'], width=w, label='시설수', color='#4C72B0')
-        ax1.bar(x_welf + w/2, df_welf['staff'],    width=w, label='종사자수', color='#C44E52')
+        ax1.bar(x_welf - bar_width_welf/2, df_welf['facility'], width=bar_width_welf, label='시설수 (개소)', color='deepskyblue')
+        ax1b = ax1.twinx() # 종사자수는 다른 y축 사용
+        ax1b.bar(x_welf + bar_width_welf/2, df_welf['staff'],    width=bar_width_welf, label='종사자수 (명)', color='tomato')
+        
         ax1.set_xticks(x_welf)
-        ax1.set_xticklabels(regions_welf, rotation=45, ha='right', fontsize=8)
-        ax1.set_ylabel('개소 / 명', fontsize=12)
-        ax1.set_title('구별 노인복지관 시설수 vs 종사자수', fontsize=14, fontweight='bold')
-        ax1.legend(fontsize=10)
-        plt.tight_layout()
+        ax1.set_xticklabels(regions_welf, rotation=45, ha='right', fontsize=10 if n_regions_welf <= 15 else 8)
+        ax1.set_title('구별 노인복지관: 시설수 및 종사자수', fontsize=15, fontweight='bold')
+        ax1.set_ylabel('시설 수 (개소)', fontsize=12, color='deepskyblue')
+        ax1b.set_ylabel('종사자 수 (명)', fontsize=12, color='tomato')
+        ax1.tick_params(axis='y', labelcolor='deepskyblue')
+        ax1b.tick_params(axis='y', labelcolor='tomato')
+        lines, labels = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax1b.get_legend_handles_labels()
+        ax1b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+        ax1.grid(axis='y', linestyle=':', alpha=0.3)
+        fig1.tight_layout()
         st.pyplot(fig1)
     else:
         st.info("노인복지관(CSV) 데이터가 없어 '시설수 vs 종사자수' 차트를 그릴 수 없습니다.")
 
-    # df_centers가 유효할 때만 두 번째 차트 그리기
     if df_centers is not None and not df_centers.empty:
         regions_centers = df_centers.index.tolist()
         x_centers = np.arange(len(regions_centers))
-        w = 0.4 # 첫 번째 차트와 동일한 너비 사용
+        n_regions_centers = len(regions_centers)
+        bar_width_centers = 0.6 # 단일 막대이므로 조금 넓게
 
         fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
-        ax2.bar(x_centers, df_centers['facility'], width=w, color='tab:green')
+        ax2.bar(x_centers, df_centers['facility'], width=bar_width_centers, color='mediumseagreen', label='시설수 (개소)')
         ax2.set_xticks(x_centers)
-        ax2.set_xticklabels(regions_centers, rotation=45, ha='right', fontsize=8)
-        ax2.set_ylabel('개소', fontsize=12)
-        ax2.set_title('구별 경로당+노인교실 합계', fontsize=14, fontweight='bold')
-        plt.tight_layout()
+        ax2.set_xticklabels(regions_centers, rotation=45, ha='right', fontsize=10 if n_regions_centers <= 15 else 8)
+        ax2.set_ylabel('시설 수 (개소)', fontsize=12)
+        ax2.set_title('구별 경로당 및 노인교실 총 시설수', fontsize=15, fontweight='bold')
+        ax2.legend(fontsize=10, loc='upper right')
+        ax2.grid(axis='y', linestyle=':', alpha=0.7)
+        ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
+        fig2.tight_layout()
         st.pyplot(fig2)
     else:
-        st.info("경로당+노인교실(CSV) 데이터가 없어 '합계' 차트를 그릴 수 없습니다.")
+        st.info("경로당+노인교실(CSV) 데이터가 없어 '총 시설수' 차트를 그릴 수 없습니다.")
 
 
 def draw_sheet3_charts(
     df_metrics,
-    figsize1: tuple = (12, 5),
-    figsize2: tuple = (15, 5),
-    figsize3: tuple = (14, 6),
+    figsize1: tuple = (14, 6),
+    figsize2: tuple = (14, 6),
+    figsize3: tuple = (14, 7),
     dpi: int = 100
 ) -> None:
     if df_metrics is None or df_metrics.empty:
-        st.warning("재가노인복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
+        st.info("재가노인복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
         return
+
     regions = df_metrics.index.tolist()
     x = np.arange(len(regions))
-    width = 0.35  # 정원/현원용
-    w_single = 0.2  # 시설수/종사자수 및 비율용
+    n_regions = len(regions)
+    base_width = 0.8
+    
+    num_groups_fig1 = 2 # 정원, 현원
+    bar_width_fig1 = base_width / num_groups_fig1 * 0.8
 
-    # (1) 정원·현원 인원수
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
-    ax1.bar(x - width/2, df_metrics['capacity'],   width=width, label='정원', color='#55A868')
-    ax1.bar(x + width/2, df_metrics['occupancy'], width=width, label='현원', color='#C44E52')
+    ax1.bar(x - bar_width_fig1/2, df_metrics['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
+    ax1.bar(x + bar_width_fig1/2, df_metrics['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
     ax1.set_xticks(x)
-    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax1.set_ylabel('명', fontsize=12)
-    ax1.set_title('구별 재가노인복지시설: 정원·현원 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax1.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig1)
+    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax1.set_ylabel('인원 수 (명)', fontsize=12)
+    ax1.set_title('구별 재가노인복지시설: 정원·현원 인원수', fontsize=15, fontweight='bold')
+    ax1.legend(fontsize=10, loc='upper right')
+    ax1.grid(axis='y', linestyle=':', alpha=0.7)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
 
-    # (2) 시설수·종사자수
+    num_groups_fig2 = 2
+    bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
-    ax2.bar(x - w_single/2, df_metrics['facility'], width=w_single, label='시설수', color='#4C72B0')
-    ax2.bar(x + w_single/2, df_metrics['staff'],    width=w_single, label='종사자수', color='#C44E52')
+    ax2.bar(x - bar_width_fig2/2, df_metrics['facility'], width=bar_width_fig2, label='시설수 (개소)', color='skyblue')
+    ax2b = ax2.twinx()
+    ax2b.bar(x + bar_width_fig2/2, df_metrics['staff'],    width=bar_width_fig2, label='종사자수 (명)', color='lightcoral')
     ax2.set_xticks(x)
-    ax2.set_ylabel('개소 / 명', fontsize=12) # Y축 레이블 수정
-    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax2.set_title('구별 재가노인복지시설 시설수·종사자수', 
-                  fontsize=14, fontweight='bold')
-    ax2.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig2)
+    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax2.set_title('구별 재가노인복지시설: 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='skyblue')
+    ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='lightcoral')
+    ax2.tick_params(axis='y', labelcolor='skyblue')
+    ax2b.tick_params(axis='y', labelcolor='lightcoral')
+    lines, labels = ax2.get_legend_handles_labels()
+    lines2, labels2 = ax2b.get_legend_handles_labels()
+    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    ax2.grid(axis='y', linestyle=':', alpha=0.3)
 
-    # (3) 정원/종사자 vs 현원/종사자 비율
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
-    ax3.bar(x - w_single/2, df_metrics['cap_per_staff'], width=w_single, label='정원/종사자수 비율', color='#55A868')
-    ax3.bar(x + w_single/2, df_metrics['occ_per_staff'], width=w_single, label='현원/종사자수 비율', color='#8172B2')
+    ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
+    ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
     ax3.set_xticks(x)
-    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax3.set_ylabel('1명당 케어 인원수', fontsize=12)
-    ax3.set_title('구별 재가노인복지시설 정원 vs 현원 1명당 케어 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax3.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig3)
+    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
+    ax3.set_title('구별 재가노인복지시설: 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
+    ax3.legend(fontsize=10, loc='upper right')
+    ax3.grid(axis='y', linestyle=':', alpha=0.7)
+    ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
+
+    for fig_item in [fig1, fig2, fig3]:
+        fig_item.tight_layout()
+        st.pyplot(fig_item)
 
 
 def draw_sheet4_charts(
     df_metrics,
-    figsize1: tuple = (12, 5), # figsize를 튜플로 일관성 있게
+    figsize1: tuple = (14, 6), # figsize 통일
     dpi: int = 100
 ) -> None:
     if df_metrics is None or df_metrics.empty:
-        st.warning("노인일자리지원기관 데이터가 없어 차트를 그릴 수 없습니다.")
+        st.info("노인일자리지원기관 데이터가 없어 차트를 그릴 수 없습니다.")
         return
+        
     regions = df_metrics.index.tolist()
     x = np.arange(len(regions))
-    w = 0.35 # 막대 너비 통일
+    n_regions = len(regions)
+    base_width = 0.8
+    num_groups = 2
+    bar_width = base_width / num_groups * 0.7
 
-    fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi) # figsize1 사용
-    ax1.bar(x - w/2, df_metrics['facility'],   width=w, label='시설수', color='#4C72B0') # 파란색 계열
-    ax1.bar(x + w/2, df_metrics['staff'],      width=w, label='종사자수', color='#C44E52') # 빨간색 계열
+    fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
+    ax1.bar(x - bar_width/2, df_metrics['facility'], width=bar_width, label='시설수 (개소)', color='skyblue')
+    ax1b = ax1.twinx() # 종사자수는 다른 y축 사용
+    ax1b.bar(x + bar_width/2, df_metrics['staff'],    width=bar_width, label='종사자수 (명)', color='lightcoral')
+    
     ax1.set_xticks(x)
-    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax1.legend(fontsize=10) # 범례 추가
-    ax1.set_ylabel('개소 / 명', fontsize=12) # Y축 레이블 수정
-    ax1.set_title('구별 노인일자리지원 시설수·종사자수', fontsize=14, fontweight='bold') # 제목 폰트 조정 및 명확화
-    plt.tight_layout()
+    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax1.set_title('구별 노인일자리지원기관: 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax1.set_ylabel('시설 수 (개소)', fontsize=12, color='skyblue')
+    ax1b.set_ylabel('종사자 수 (명)', fontsize=12, color='lightcoral')
+    ax1.tick_params(axis='y', labelcolor='skyblue')
+    ax1b.tick_params(axis='y', labelcolor='lightcoral')
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax1b.get_legend_handles_labels()
+    ax1b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    ax1.grid(axis='y', linestyle=':', alpha=0.3) # ax1에 대한 그리드
+    
+    fig1.tight_layout()
     st.pyplot(fig1)
 
 def draw_sheet5_charts(
     df_metrics,
-    figsize1: tuple = (12, 5),
-    figsize2: tuple = (15, 5),
-    figsize3: tuple = (14, 6),
+    figsize1: tuple = (14, 6),
+    figsize2: tuple = (14, 6),
+    figsize3: tuple = (14, 7),
     dpi: int = 100
 ) -> None:
     if df_metrics is None or df_metrics.empty:
-        st.warning("치매전담형 장기요양기관 데이터가 없어 차트를 그릴 수 없습니다.")
+        st.info("치매전담형 장기요양기관 데이터가 없어 차트를 그릴 수 없습니다.")
         return
+
     regions = df_metrics.index.tolist()
     x = np.arange(len(regions))
-    width = 0.35 # 정원/현원/추가용
-    w_single = 0.2 # 시설수/종사자 및 비율용
+    n_regions = len(regions)
+    base_width = 0.8
+    num_groups_fig1 = 3
+    bar_width_fig1 = base_width / num_groups_fig1 * 0.8
 
-    # (1) 정원·현원·추가 수용
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
-    ax1.bar(x - width, df_metrics['capacity'],   width=width, label='정원', color='#55A868')
-    ax1.bar(x,         df_metrics['occupancy'], width=width, label='현원', color='#C44E52')
-    ax1.bar(x + width, df_metrics['additional'], width=width, label='추가 수용', color='#EE8454')
+    ax1.bar(x - bar_width_fig1, df_metrics['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
+    ax1.bar(x,                  df_metrics['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
+    ax1.bar(x + bar_width_fig1, df_metrics['additional'], width=bar_width_fig1, label='추가 수용', color='lightgreen')
     ax1.set_xticks(x)
-    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax1.set_ylabel('명', fontsize=12)
-    ax1.set_title('구별 치매전담형 장기요양기관: 정원·현원·추가 수용 가능 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax1.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig1)
+    ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax1.set_ylabel('인원 수 (명)', fontsize=12)
+    ax1.set_title('구별 치매전담형 장기요양기관: 정원·현원·추가 수용 가능 인원', 
+                  fontsize=15, fontweight='bold')
+    ax1.legend(fontsize=10, loc='upper right')
+    ax1.grid(axis='y', linestyle=':', alpha=0.7)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
 
-    # (2) 시설수·종사자수
+    num_groups_fig2 = 2
+    bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
-    ax2.bar(x - w_single/2, df_metrics['facility'], width=w_single, label='시설수', color='#4C72B0')
-    ax2.bar(x + w_single/2, df_metrics['staff'],    width=w_single, label='종사자수', color='#C44E52')
+    ax2.bar(x - bar_width_fig2/2, df_metrics['facility'], width=bar_width_fig2, label='시설수 (개소)', color='skyblue')
+    ax2b = ax2.twinx()
+    ax2b.bar(x + bar_width_fig2/2, df_metrics['staff'],    width=bar_width_fig2, label='종사자수 (명)', color='lightcoral')
     ax2.set_xticks(x)
-    ax2.set_ylabel('개소 / 명', fontsize=12) # Y축 레이블 수정
-    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax2.set_title('구별 치매전담형 장기요양기관 시설수·종사자수', 
-                  fontsize=14, fontweight='bold')
-    ax2.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig2)
+    ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax2.set_title('구별 치매전담형 장기요양기관: 시설수 및 종사자수', 
+                  fontsize=15, fontweight='bold')
+    ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='skyblue')
+    ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='lightcoral')
+    ax2.tick_params(axis='y', labelcolor='skyblue')
+    ax2b.tick_params(axis='y', labelcolor='lightcoral')
+    lines, labels = ax2.get_legend_handles_labels()
+    lines2, labels2 = ax2b.get_legend_handles_labels()
+    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    ax2.grid(axis='y', linestyle=':', alpha=0.3)
 
-    # (3) 정원/종사자 vs 현원/종사자 비율
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
-    ax3.bar(x - w_single/2, df_metrics['cap_per_staff'], width=w_single, label='정원/종사자수 비율', color='#55A868')
-    ax3.bar(x + w_single/2, df_metrics['occ_per_staff'], width=w_single, label='현원/종사자수 비율', color='#8172B2')
+    ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
+    ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
     ax3.set_xticks(x)
-    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=8)
-    ax3.set_ylabel('1명당 케어 인원수', fontsize=12)
-    ax3.set_title('구별 치매전담형 장기요양기관 정원 vs 현원 1명당 케어 인원수', 
-                  fontsize=14, fontweight='bold')
-    ax3.legend(fontsize=10)
-    plt.tight_layout()
-    st.pyplot(fig3)
-# --- END OF chart_utils.py ---
+    ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
+    ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
+    ax3.set_title('구별 치매전담형 장기요양기관: 종사자 1인당 담당 인원 비교', 
+                  fontsize=15, fontweight='bold')
+    ax3.legend(fontsize=10, loc='upper right')
+    ax3.grid(axis='y', linestyle=':', alpha=0.7)
+    ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
+
+    for fig_item in [fig1, fig2, fig3]:
+        fig_item.tight_layout()
+        st.pyplot(fig_item)
