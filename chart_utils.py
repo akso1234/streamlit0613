@@ -1,4 +1,5 @@
-# from matplotlib import font_manager # 직접적인 폰트 파일 로드에 사용하지 않음
+# --- START OF MODIFIED FILE chart_utils.py (히트맵 스타일 수정 포함) ---
+# from matplotlib import font_manager # utils.py에서 처리하므로 직접 사용 최소화
 import matplotlib.pyplot as plt
 import streamlit as st
 import altair as alt # Altair 예시 함수를 위해 유지
@@ -11,11 +12,7 @@ import numpy as np
 # 각 페이지 파일에서 utils.set_korean_font()를 호출하여 전역 설정을 하므로,
 # chart_utils.py에서는 이 부분을 제거하거나, 최소한으로 남깁니다.
 # ——————————————————————————————————————————————————
-# font_path = "/System/Library/Fonts/AppleSDGothicNeo.ttc" # macOS 특정 경로 제거
-# font_name = font_manager.FontProperties(fname=font_path).get_name() # 제거
-# font_manager.fontManager.addfont(font_path) # 제거
-# plt.rcParams['font.family'] = font_name # 제거
-plt.rcParams['axes.unicode_minus'] = False # 이 설정은 utils.py에서도 처리되지만, 여기서도 유지 가능
+plt.rcParams['axes.unicode_minus'] = False # 마이너스 폰트 깨짐 방지 설정은 유지
 # ——————————————————————————————————————————————————
 
 
@@ -73,30 +70,27 @@ def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
     for inst in types:
         if inst not in df_plot.columns: 
             continue
-        # 이미 to_numeric과 fillna(0)이 data_loader나 map_utils에서 처리되었을 수 있지만, 여기서도 안전하게 처리
         df_plot[inst] = pd.to_numeric(df_plot[inst], errors="coerce").fillna(0)
 
-        fig, ax = plt.subplots(figsize=(12, 5)) # figsize는 원본 유지 또는 약간 조정
-        bars = ax.bar(df_plot["gu"], df_plot[inst], color='tab:blue') # 색상 통일성 고려
-        ax.set_title(f"구별 {inst} 수", fontsize=15) # 원본 폰트 크기 14
+        fig, ax = plt.subplots(figsize=(12, 5)) 
+        bars = ax.bar(df_plot["gu"], df_plot[inst], color='skyblue') 
+        ax.set_title(f"구별 {inst} 수", fontsize=15) 
         ax.set_xlabel("자치구", fontsize=12)
         ax.set_ylabel("기관 수", fontsize=12)
-        plt.xticks(rotation=45, ha="right", fontsize=10) # 원본 90도 회전, 폰트 크기 추가
+        plt.xticks(rotation=45, ha="right", fontsize=10) 
         plt.yticks(fontsize=10)
-        ax.grid(axis='y', linestyle='--', alpha=0.6) # 그리드 추가
+        ax.grid(axis='y', linestyle='--', alpha=0.7) 
 
-        # 값 표시 (선택 사항, 너무 많으면 지저분해 보일 수 있음)
-        # for bar_obj in bars:
-        #     y_val = bar_obj.get_height()
-        #     if y_val > 0:
-        #         ax.text(bar_obj.get_x() + bar_obj.get_width()/2.0, y_val + 0.05 * df_plot[inst].max(), 
-        #                 f'{int(y_val)}', ha='center', va='bottom', fontsize=8)
+        for bar in bars:
+            yval = bar.get_height()
+            if yval > 0 : 
+                plt.text(bar.get_x() + bar.get_width()/2.0, yval + (df_plot[inst].max()*0.01 if not df_plot[inst].empty and df_plot[inst].max() >0 else 0.1), 
+                         f'{int(yval)}', ha='center', va='bottom', fontsize=9)
         
-        if not df_plot[inst].empty and df_plot[inst].max() > 0 :
-             ax.set_ylim(0, df_plot[inst].max() * 1.1)
+        if not df_plot[inst].empty and df_plot[inst].max() > 0 : # 데이터가 있을 때만 ylim 설정
+             ax.set_ylim(0, df_plot[inst].max() * 1.15)
 
-
-        plt.tight_layout() # 레이아웃 자동 조정
+        plt.tight_layout() 
         st.pyplot(fig)
 
 def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
@@ -113,11 +107,8 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
         df_b = df_b[df_b["gu"] != "소계"].reset_index(drop=True)
 
     types = ["종합병원", "병원", "의원", "요양병원"]
-    # 컬럼 존재 확인
     if not all(t in df_h.columns for t in types) or not all(t in df_b.columns for t in types):
         st.warning("집계 병상/병원 차트: 필요한 유형 컬럼이 데이터에 없습니다.")
-        # 모든 유형이 없으면 차트 생성이 어려우므로, 일부만 있어도 그리도록 하거나 여기서 return
-        # 여기서는 get(t,0)으로 처리
     
     total_hosp = {}
     total_beds = {}
@@ -128,131 +119,144 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     avg_beds = {}
     for t in types:
         hosp_count = total_hosp.get(t, 0)
-        if hosp_count > 0: # 0으로 나누기 방지
+        if hosp_count > 0:
             avg_beds[t] = total_beds.get(t, 0) / hosp_count
         else:
-            avg_beds[t] = 0.0 # 병원 수가 0이면 평균도 0
+            avg_beds[t] = 0.0
 
-    # 원본 색상 유지 또는 필요시 변경
-    colors = {'병원 수': 'tab:green', '병상 수': 'tab:blue', '평균 병상 수': 'tab:orange'}
+    bar_colors = {'병원 수': 'mediumseagreen', '병상 수': 'cornflowerblue', '평균 병상 수': 'lightcoral'}
     
-    fig2, ax2 = plt.subplots(figsize=(8, 4.5)) # figsize는 원본 유지 또는 약간 조정
-    ax2.bar(total_hosp.keys(), total_hosp.values(), color=colors['병원 수'])
-    ax2.set_title('의료기관 유형별 전체 병원 수', fontsize=15) # 원본 14
-    ax2.set_ylabel('병원 수', fontsize=12)
-    ax2.set_xlabel('기관 유형', fontsize=12)
+    fig_hosp, ax_hosp = plt.subplots(figsize=(8, 4.5)) 
+    ax_hosp.bar(total_hosp.keys(), total_hosp.values(), color=bar_colors['병원 수'])
+    ax_hosp.set_title('의료기관 유형별 전체 병원 수', fontsize=15) 
+    ax_hosp.set_ylabel('병원 수', fontsize=12)
+    ax_hosp.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(fontsize=10); plt.yticks(fontsize=10)
-    ax2.grid(axis='y', linestyle=':', alpha=0.6)
+    ax_hosp.grid(axis='y', linestyle=':', alpha=0.6)
     plt.tight_layout()
-    st.pyplot(fig2)
+    st.pyplot(fig_hosp)
 
-    fig1, ax1 = plt.subplots(figsize=(8, 4.5))
-    ax1.bar(total_beds.keys(), total_beds.values(), color=colors['병상 수'])
-    ax1.set_title('의료기관 유형별 전체 병상 수', fontsize=15)
-    ax1.set_ylabel('병상 수', fontsize=12)
-    ax1.set_xlabel('기관 유형', fontsize=12)
+    fig_beds, ax_beds = plt.subplots(figsize=(8, 4.5))
+    ax_beds.bar(total_beds.keys(), total_beds.values(), color=bar_colors['병상 수'])
+    ax_beds.set_title('의료기관 유형별 전체 병상 수', fontsize=15)
+    ax_beds.set_ylabel('병상 수', fontsize=12)
+    ax_beds.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(fontsize=10); plt.yticks(fontsize=10)
-    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')) # y축 콤마
-    ax1.grid(axis='y', linestyle=':', alpha=0.6)
+    ax_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')) 
+    ax_beds.grid(axis='y', linestyle=':', alpha=0.6)
     plt.tight_layout()
-    st.pyplot(fig1)
+    st.pyplot(fig_beds)
 
-    fig3, ax3 = plt.subplots(figsize=(8, 4.5))
-    ax3.bar(avg_beds.keys(), avg_beds.values(), color=colors['평균 병상 수'])
-    ax3.set_title('의료기관 유형별 병원당 평균 병상 수', fontsize=15)
-    ax3.set_ylabel('평균 병상 수', fontsize=12)
-    ax3.set_xlabel('기관 유형', fontsize=12)
+    fig_avg_beds, ax_avg_beds = plt.subplots(figsize=(8, 4.5))
+    ax_avg_beds.bar(avg_beds.keys(), avg_beds.values(), color=bar_colors['평균 병상 수'])
+    ax_avg_beds.set_title('의료기관 유형별 병원당 평균 병상 수', fontsize=15)
+    ax_avg_beds.set_ylabel('평균 병상 수', fontsize=12)
+    ax_avg_beds.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(fontsize=10); plt.yticks(fontsize=10)
-    ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.1f}')) # y축 소수점 한자리
-    ax3.grid(axis='y', linestyle=':', alpha=0.6)
+    ax_avg_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.1f}')) 
+    ax_avg_beds.grid(axis='y', linestyle=':', alpha=0.6)
     plt.tight_layout()
-    st.pyplot(fig3)
+    st.pyplot(fig_avg_beds)
 
 def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
     if df_hosp is None or df_hosp.empty or df_beds is None or df_beds.empty:
         st.info("평균 병상 수 히트맵을 그릴 데이터가 없습니다.")
         return None 
 
-    types = ["종합병원", "병원", "요양병원"] # 원본에서 '의원' 제외
+    types = ["종합병원", "병원", "요양병원"]
 
     if "gu" not in df_hosp.columns or "gu" not in df_beds.columns:
         st.error("draw_avg_beds_heatmap: df_hosp 또는 df_beds에 'gu' 컬럼이 없습니다.")
         return None
+        
+    df_h = df_hosp[df_hosp["gu"] != "소계"].copy() 
+    df_b = df_beds[df_beds["gu"] != "소계"].copy() 
 
-    df_h = df_hosp[df_hosp["gu"] != "소계"].copy() # '소계' 행 제외
-    df_b = df_beds[df_beds["gu"] != "소계"].copy() # '소계' 행 제외
+    df_h_indexed = df_h.set_index("gu")[[col for col in types if col in df_h.columns]].apply(pd.to_numeric, errors="coerce")
+    df_b_indexed = df_b.set_index("gu")[[col for col in types if col in df_b.columns]].apply(pd.to_numeric, errors="coerce")
 
-    # 필요한 유형 컬럼이 있는지 확인
-    df_h = df_h.set_index("gu")[[col for col in types if col in df_h.columns]].apply(pd.to_numeric, errors="coerce")
-    df_b = df_b.set_index("gu")[[col for col in types if col in df_b.columns]].apply(pd.to_numeric, errors="coerce")
+    common_gus = df_h_indexed.index.intersection(df_b_indexed.index)
+    common_types_heatmap = [t for t in types if t in df_h_indexed.columns and t in df_b_indexed.columns] # 변수명 변경
 
-    # 공통 'gu' 및 공통 'types'에 대해서만 계산
-    common_gus = df_h.index.intersection(df_b.index)
-    common_types = [t for t in types if t in df_h.columns and t in df_b.columns]
-
-    if common_gus.empty or not common_types:
+    if common_gus.empty or not common_types_heatmap:
         st.warning("draw_avg_beds_heatmap: 공통 자치구 또는 유형이 없어 히트맵을 생성할 수 없습니다.")
         return None
 
-    df_h_common = df_h.loc[common_gus, common_types]
-    df_b_common = df_b.loc[common_gus, common_types]
+    df_h_common = df_h_indexed.loc[common_gus, common_types_heatmap]
+    df_b_common = df_b_indexed.loc[common_gus, common_types_heatmap]
     
     df_avg = df_b_common.divide(df_h_common.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
-    df_avg = df_avg.fillna(0) # NaN은 0으로 표시 (선택 사항)
+    # NaN 값은 -1 등으로 대체하지 않고 그대로 두어, imshow에서 기본 배경색으로 처리되도록 하거나,
+    # 또는 아래 주석 해제하여 특정 색으로 표시 (단, 이 경우 cmap.set_bad도 함께 사용)
+    # df_avg = df_avg.fillna(-1) # 이전 방식. 이미지에서는 '-'로 표시되므로 NaN이 적절할 수 있음.
 
     if df_avg.empty:
         st.info("평균 병상 수 계산 결과가 비어 히트맵을 그릴 수 없습니다.")
         return None
 
-    fig, ax = plt.subplots(figsize=(10, 12 if len(df_avg.index) > 15 else 8), dpi=100) # 크기 조정
-    cmap = plt.cm.get_cmap("Blues_r", 12)  # 원본 Blues, 단계 명시 (역순으로 변경)
+    fig, ax = plt.subplots(figsize=(10, 12 if len(df_avg.index) > 15 else 9), dpi=120)
+    
+    cmap = plt.cm.get_cmap("Blues", 10) # 이미지와 유사한 파란색 계열
+    # cmap.set_bad(color='lightgray') # 만약 df_avg.fillna(-1)을 사용하지 않고 NaN을 다른 색으로 처리하고 싶다면
 
-    # 히트맵 vmin, vmax 값 안전하게 설정
-    data_for_scale = df_avg.values[~np.isnan(df_avg.values)]
-    vmin_val = np.min(data_for_scale) if data_for_scale.size > 0 else 0
-    vmax_val = np.max(data_for_scale) if data_for_scale.size > 0 else 1
-    if vmin_val == vmax_val and data_for_scale.size > 0 : vmax_val = vmin_val + 1 # 모든 값이 같을 경우 대비
+    valid_data_for_scale = df_avg.values[~np.isnan(df_avg.values) & ~np.isinf(df_avg.values)]
+    vmin_val = 0 # 평균 병상수는 0 이상이므로
+    vmax_val = np.max(valid_data_for_scale) if valid_data_for_scale.size > 0 else 1
+    if vmin_val == vmax_val and valid_data_for_scale.size > 0: vmax_val = vmin_val + 1
 
+    im = ax.imshow(
+        df_avg.values, # NaN 값을 그대로 전달 (cmap.set_bad()와 함께 사용 가능)
+        cmap=cmap,
+        aspect="auto", 
+        vmin=vmin_val, 
+        vmax=vmax_val 
+    )
 
-    im = ax.imshow(df_avg.values, cmap=cmap, aspect="auto", vmin=vmin_val, vmax=vmax_val)
-
-    ax.set_xticks(np.arange(len(df_avg.columns))) # types 대신 df_avg.columns 사용
-    ax.set_xticklabels(df_avg.columns, fontsize=12, fontweight='bold') # 원본 14
+    ax.set_xticks(np.arange(len(df_avg.columns)))
+    ax.set_xticklabels(df_avg.columns, fontsize=11, fontweight='bold') 
     ax.set_yticks(np.arange(len(df_avg.index)))
-    ax.set_yticklabels(df_avg.index, fontsize=10) # 원본 12
-    ax.set_xlabel("기관 유형", fontsize=14, fontweight='bold') # 원본 16
-    ax.set_ylabel("자치구", fontsize=14, fontweight='bold') # 원본 16
-    ax.set_title("구별 기관 유형별 평균 병상 수", fontsize=16, fontweight='bold') # 원본 18
+    ax.set_yticklabels(df_avg.index, fontsize=10) 
+    ax.set_xlabel("기관 유형", fontsize=13, fontweight='bold', labelpad=10)
+    ax.set_ylabel("자치구", fontsize=13, fontweight='bold', labelpad=10)
+    ax.set_title("구별 기관 유형별 평균 병상 수", fontsize=16, fontweight='bold', pad=15)
 
-    # annot 텍스트 색상 로직 개선
-    for (i, j), val in np.ndenumerate(df_avg.values):
-        text = "-" if np.isnan(val) else f"{val:.1f}"
-        # 텍스트 색상을 셀 배경색과의 대비를 고려하여 결정
-        # 정규화된 값을 기준으로 중간보다 밝으면 검정, 어두우면 흰색
-        normalized_val = (val - vmin_val) / (vmax_val - vmin_val) if (vmax_val - vmin_val) != 0 and pd.notna(val) else 0.5
-        text_color = "white" if normalized_val > 0.55 else "black" # 임계값 조정 가능
-
-        ax.text(j, i, text, ha="center", va="center", color=text_color, fontsize=10, fontweight='normal') # 원본 12, bold
+    # 셀 내부 텍스트
+    for i in range(len(df_avg.index)):
+        for j in range(len(df_avg.columns)):
+            val = df_avg.iloc[i, j]
+            text_to_display = "-" 
+            if pd.notna(val) and not np.isinf(val):
+                text_to_display = f"{val:.1f}"
+            
+            cell_color_value = val
+            text_color = "black" # 기본값
+            if pd.notna(cell_color_value) and not np.isinf(cell_color_value) and vmax_val > vmin_val:
+                normalized_val = (cell_color_value - vmin_val) / (vmax_val - vmin_val)
+                text_color = "white" if normalized_val > 0.55 else "black" # Blues 컬러맵은 값이 클수록 진해짐
+            
+            ax.text(j, i, text_to_display,
+                    ha="center", va="center",
+                    color=text_color, fontsize=9, fontweight='normal')
 
     ax.set_xticks(np.arange(len(df_avg.columns) + 1) - 0.5, minor=True)
     ax.set_yticks(np.arange(len(df_avg.index) + 1) - 0.5, minor=True)
-    ax.grid(which="minor", color="lightgray", linestyle='-', linewidth=0.8) # 원본 gray, linewidth 1
+    ax.grid(which="minor", color="grey", linestyle='-', linewidth=0.5) 
     ax.tick_params(which="minor", bottom=False, left=False)
 
-    cbar = fig.colorbar(im, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
-    cbar.ax.tick_params(labelsize=10) # 원본 12
-    cbar.set_label("평균 병상 수", fontsize=12, fontweight='bold') # 원본 14
+    cbar = fig.colorbar(im, ax=ax, orientation="vertical", fraction=0.046, pad=0.05)
+    cbar.ax.tick_params(labelsize=9)
+    cbar.set_label("평균 병상 수", fontsize=11, fontweight='bold', labelpad=10)
 
-    plt.tight_layout()
+    plt.tight_layout(pad=0.5)
     st.pyplot(fig)
     return df_avg
 
 
 def draw_sheet0_charts(
     df_metrics,
-    figsize1: tuple = (14, 6), 
-    figsize2: tuple = (14, 6), 
-    figsize3: tuple = (14, 7), 
+    figsize1: tuple = (14, 6),
+    figsize2: tuple = (14, 6),
+    figsize3: tuple = (14, 7),
     dpi: int = 100
 ) -> None:
     if df_metrics is None or df_metrics.empty:
@@ -268,9 +272,9 @@ def draw_sheet0_charts(
     bar_width_fig1 = base_width / num_groups_fig1 * 0.8 
 
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
-    ax1.bar(x - bar_width_fig1, df_metrics['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue') # 색상 변경
-    ax1.bar(x,                  df_metrics['occupancy'], width=bar_width_fig1, label='현원', color='salmon')      # 색상 변경
-    ax1.bar(x + bar_width_fig1, df_metrics['additional'], width=bar_width_fig1, label='추가 수용', color='lightgreen') # 색상 변경
+    ax1.bar(x - bar_width_fig1, df_metrics['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
+    ax1.bar(x,                  df_metrics['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
+    ax1.bar(x + bar_width_fig1, df_metrics['additional'], width=bar_width_fig1, label='추가 수용', color='lightgreen')
     
     ax1.set_xticks(x)
     ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
@@ -285,9 +289,9 @@ def draw_sheet0_charts(
     num_groups_fig2 = 2
     bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
-    ax2.bar(x - bar_width_fig2/2, df_metrics['facility'], width=bar_width_fig2, label='시설수 (개소)', color='skyblue') # 색상 변경
+    ax2.bar(x - bar_width_fig2/2, df_metrics['facility'], width=bar_width_fig2, label='시설수 (개소)', color='skyblue')
     ax2b = ax2.twinx()
-    ax2b.bar(x + bar_width_fig2/2, df_metrics['staff'],    width=bar_width_fig2, label='종사자수 (명)', color='lightcoral') # 색상 변경
+    ax2b.bar(x + bar_width_fig2/2, df_metrics['staff'],    width=bar_width_fig2, label='종사자수 (명)', color='lightcoral')
     
     ax2.set_xticks(x)
     ax2.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
@@ -304,8 +308,8 @@ def draw_sheet0_charts(
     st.pyplot(fig2)
 
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
-    ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen') # 색상 변경
-    ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple') # 색상 변경
+    ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
+    ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
     
     ax3.set_xticks(x)
     ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
@@ -615,3 +619,4 @@ def draw_sheet5_charts(
     ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
     fig3.tight_layout()
     st.pyplot(fig3)
+# --- END OF chart_utils.py ---
