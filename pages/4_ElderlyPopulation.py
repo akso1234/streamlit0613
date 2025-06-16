@@ -441,9 +441,6 @@ def run_elderly_population_page():
             st.session_state.selected_year_elderly = new_selected_year_from_slider
             st.rerun() # 페이지를 다시 실행하여 모든 탭에 변경된 연도 적용
 
-        # 아래 내용은 rerun 후에 업데이트된 session_state 기반의 연도 변수들을 사용하게 됨
-        st.subheader(f"{selected_year_int}년 자치구별 현황") # selected_year_int는 이제 session_state.selected_year_elderly를 반영
-        
         sub_tab_gu1, sub_tab_gu2, sub_tab_gu3, sub_tab_gu4, sub_tab_gu5 = st.tabs([
             "고령화율", "독거노인 수", "노인 중 독거노인 비율", "전체 대비 노인 비율", "독거노인 지도"
         ])
