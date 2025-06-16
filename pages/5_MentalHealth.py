@@ -88,14 +88,14 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
     try:
-        sido_col_tuple = df_raw.columns[0]
-        sigungu_col_tuple = df_raw.columns[1]
+        sido_col_name_tuple = df_raw.columns[0]
+        sigungu_col_name_tuple = df_raw.columns[1]
     except IndexError:
-        st.error("독거노인 파일의 컬럼 구조가 예상과 다릅니다 (지역 정보 컬럼 접근 불가).")
+        st.error("독거노인 파일의 컬럼 구조가 예상과 다릅니다 (최소 2개 이상의 컬럼이 필요).")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
-    df_seoul = df_raw[df_raw[sido_col_tuple] == '서울특별시'].copy()
-    df_gu_data = df_seoul[df_seoul[sigungu_col_tuple].str.endswith('구', na=False)].copy()
+    df_seoul = df_raw[df_raw[sido_col_name_tuple] == '서울특별시'].copy()
+    df_gu_data = df_seoul[df_seoul[sigungu_col_name_tuple].str.endswith('구', na=False)].copy()
 
     if df_gu_data.empty:
         st.warning("독거노인 데이터에서 구별 데이터를 찾을 수 없습니다.")
@@ -108,41 +108,46 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
         if not (2021 <= int(year_str) <= 2023): 
             continue
         
-        target_col_tuple_exact = (year_str, '합계', '소계', '계') 
+        level1_expected = '합계'
+        level2_expected = '소계'
+        level3_expected = '계'
+
+        target_col_found = None
+        for col_tuple_from_df in df_gu_data.columns:
+            if isinstance(col_tuple_from_df, tuple) and len(col_tuple_from_df) == 4:
+                l0, l1, l2, l3 = str(col_tuple_from_df[0]).strip(), str(col_tuple_from_df[1]).strip(), str(col_tuple_from_df[2]).strip(), str(col_tuple_from_df[3]).strip()
+                if l0 == year_str and l1 == level1_expected and l2 == level2_expected and l3 == level3_expected:
+                    target_col_found = col_tuple_from_df
+                    break
         
-        if target_col_tuple_exact not in df_gu_data.columns:
-            print(f"DEBUG (Dokgo): {year_str}년 총 독거노인 수 컬럼 {target_col_tuple_exact}을(를) 찾을 수 없습니다.")
-            print(f"DEBUG (Dokgo): 사용 가능한 컬럼 예시 (df_gu_data): {df_gu_data.columns.tolist()[:15]}")
+        if target_col_found is None:
+            # st.warning(f"{year_str}년 ('{level1_expected}', '{level2_expected}', '{level3_expected}') 컬럼을 찾지 못했습니다.")
             continue
             
         try:
-            # print(f"DEBUG (Dokgo): Processing year {year_str}")
-            # print(f"DEBUG (Dokgo): sigungu_col_tuple = {sigungu_col_tuple}")
-            # print(f"DEBUG (Dokgo): target_col_tuple_exact = {target_col_tuple_exact}")
-
-            if sigungu_col_tuple not in df_gu_data.columns or target_col_tuple_exact not in df_gu_data.columns:
-                print(f"ERROR (Dokgo): Year {year_str} - Required columns not found in df_gu_data before creating year_data.")
-                print(f"  sigungu_col_tuple exists: {sigungu_col_tuple in df_gu_data.columns}")
-                print(f"  target_col_tuple_exact exists: {target_col_tuple_exact in df_gu_data.columns}")
+            cols_to_select = [sigungu_col_name_tuple, target_col_found]
+            if not all(col in df_gu_data.columns for col in cols_to_select):
+                # st.warning(f"{year_str}년 데이터 추출 시 필요한 컬럼이 df_gu_data에 없습니다. 선택된 컬럼: {cols_to_select}")
                 continue
 
-            year_data = df_gu_data[[sigungu_col_tuple, target_col_tuple_exact]].copy()
-            # print(f"DEBUG (Dokgo): year_data columns BEFORE rename for year {year_str}: {year_data.columns.tolist()}")
-
-            year_data.rename(columns={
-                sigungu_col_tuple: '시군구',
-                target_col_tuple_exact: '독거노인수'
-            }, inplace=True)
-            # print(f"DEBUG (Dokgo): year_data columns AFTER rename for year {year_str}: {year_data.columns.tolist()}")
+            year_data = df_gu_data[cols_to_select].copy()
             
+            year_data.rename(columns={
+                sigungu_col_name_tuple: '시군구',
+                target_col_found: '독거노인수'
+            }, inplace=True)
+            
+            if '독거노인수' not in year_data.columns:
+                # st.error(f"{year_str}년 데이터 rename 후 '독거노인수' 컬럼이 없습니다. 원본 컬럼: {target_col_found}")
+                continue
+
             year_data['연도'] = int(year_str)
             result_data.append(year_data)
         except KeyError as ke:
-            st.warning(f"{year_str}년 독거노인 데이터 처리 중 KeyError 발생 (컬럼 접근 오류): {ke}. 해당 연도 데이터를 건너뜁니다.")
-            print(f"DEBUG (Dokgo): KeyError details for year {year_str} - df_gu_data columns: {df_gu_data.columns.tolist()[:15]}")
+            # st.warning(f"{year_str}년 독거노인 데이터 처리 중 KeyError: {ke}. 컬럼명: {cols_to_select}")
             continue
         except Exception as e:
-            st.warning(f"{year_str}년 독거노인 데이터 처리 중 예외 발생 (데이터프레임 생성/수정 중): {e}")
+            # st.warning(f"{year_str}년 독거노인 데이터 처리 중 예외 발생: {e}")
             continue
             
     if not result_data:
@@ -152,8 +157,7 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
     df_final_dokgo = pd.concat(result_data, ignore_index=True)
     
     if '독거노인수' not in df_final_dokgo.columns:
-        st.error("독거노인 데이터 결합 후 '독거노인수' 컬럼이 생성되지 않았습니다. (Dokgo) 루프 내 rename 로직 또는 컬럼명 확인 필요.")
-        print(f"DEBUG (Dokgo): df_final_dokgo columns after concat: {df_final_dokgo.columns.tolist()}")
+        st.error("독거노인 데이터 결합 후 '독거노인수' 컬럼이 생성되지 않았습니다. (Dokgo) 최종 DataFrame 컬럼: " + str(df_final_dokgo.columns.tolist()))
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
     df_final_dokgo['독거노인수'] = pd.to_numeric(df_final_dokgo['독거노인수'], errors='coerce').fillna(0).astype(int)
@@ -174,7 +178,7 @@ def preprocess_elderly_population_total_cached(file_path):
         sigungu_col_key = df_goryeong_raw.columns[1]
 
         df_filtered = df_goryeong_raw[df_goryeong_raw[sido_col_key] == '합계']
-        df_sigungu_rows = df_filtered[df_filtered[sigungu_col_key] != '소계'].copy()
+        df_sigungu_rows = df_filtered[df_filtered[sigungu_col_key] != '소계'].copy() 
 
         df_sigungu_elderly_pop_list_total = []
         for index, row_data in df_sigungu_rows.iterrows():
@@ -187,13 +191,13 @@ def preprocess_elderly_population_total_cached(file_path):
                 pop_col_key_target = (year_str, '65세이상 인구', '소계', '소계')
                 
                 total_elderly_val = 0
-                if pop_col_key_target in row_data.index:
+                if pop_col_key_target in row_data.index: 
                     value_raw = row_data[pop_col_key_target]
                     if pd.notna(value_raw) and str(value_raw).strip() not in ['', '-']:
-                       try:
+                       try: 
                            total_elderly_val = int(str(value_raw).replace(',', '').strip())
                        except ValueError:
-                           total_elderly_val = 0
+                           total_elderly_val = 0 
                 
                 df_sigungu_elderly_pop_list_total.append({
                     '시군구': sigungu_name, '연도': year_int, '총_65세_이상_노인인구': total_elderly_val
