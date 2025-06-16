@@ -375,7 +375,7 @@ def run_housing_safety_page():
         else: st.info("구조활동 데이터에 '신고시각' 컬럼이 없어 시간대별 분석을 수행할 수 없습니다.")
 
     with tabs[4]: 
-        st.subheader("노인 인구 비율 및 노후 주택 비율과 특정 사고 건수 간 상관관계")
+        st.subheader("노인 인구 비율 / 노후 주택 비율과 특정 사고 건수 간 상관관계")
         if '사고원인' in df_rescue_processed.columns and \
            '고령인구비율' in df_elderly_processed_h.columns and \
            '노후주택비율' in df_housing_processed_h.columns:
@@ -409,7 +409,7 @@ def run_housing_safety_page():
 
 
     with tabs[5]: 
-        st.subheader("노후 주택 비율, 고령 인구 비율과 특정 사고 건수의 복합적 관계")
+        st.subheader("노후 주택 비율 / 고령 인구 비율과 특정 사고 건수의 상관관계")
         unique_causes_list_h_bubble_ratio = sorted(df_rescue_processed['사고원인'].unique()) if '사고원인' in df_rescue_processed.columns else ['화재']
         default_idx_bubble_ratio = unique_causes_list_h_bubble_ratio.index('화재') if '화재' in unique_causes_list_h_bubble_ratio else 0
         cause_for_bubble_ratio = st.selectbox("버블/히트맵 기준 사고 원인 (비율):", unique_causes_list_h_bubble_ratio, index=default_idx_bubble_ratio, key="bubble_ratio_cause_select_housing")
