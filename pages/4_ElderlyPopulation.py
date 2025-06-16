@@ -212,12 +212,21 @@ def create_dokgo_map_yearly(df_gu_dokgo, selected_year, geo_data):
     m = folium.Map(location=[37.5665, 126.9780], zoom_start=10.5, tiles='CartoDB positron')
     choropleth_data_series = df_gu_dokgo[selected_year]
     choropleth_df = choropleth_data_series.reset_index(); choropleth_df.columns = ['자치구', '독거노인수']
+    
     folium.Choropleth(
-        geo_data=geo_data, name=f'독거노인 수 ({selected_year})', data=choropleth_df,
-        columns=['자치구', '독거노인수'], key_on='feature.properties.name',
-        fill_color='YlOrRd', fill_opacity=0.7, line_opacity=0.3,
-        legend_name=f'독거노인 수 ({selected_year})', highlight=True
+        geo_data=geo_data, 
+        name=f'독거노인 수 ({selected_year})', 
+        data=choropleth_df,
+        columns=['자치구', '독거노인수'], 
+        key_on='feature.properties.name',
+        fill_color='YlOrRd', 
+        fill_opacity=0.7, 
+        line_opacity=0.3,
+        legend_name=f'독거노인 수 ({selected_year})', 
+        highlight=True, 
+        tooltip=None  # Choropleth의 기본 툴팁 비활성화
     ).add_to(m)
+    
     try:
         for feature in geo_data['features']:
             gu_name_geojson = feature['properties'].get('name'); geom = shape(feature['geometry'])
@@ -232,7 +241,7 @@ def create_dokgo_map_yearly(df_gu_dokgo, selected_year, geo_data):
                 location=[center_lat, center_lon],
                 icon=folium.DivIcon(
                     html=f'<div style="font-size: 9pt; font-weight: bold; color: black; background-color: transparent; white-space: nowrap;">{gu_name_geojson}</div>'
-                ), # 스타일 수정
+                ), 
                 tooltip=folium.Tooltip(tooltip_text, style=("background-color: white; color: #333; font-size: 12px; padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.15);"))
             ).add_to(m)
     except Exception as e: st.warning(f"지도 툴팁 생성 중 오류: {e}")
