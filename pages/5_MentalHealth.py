@@ -186,7 +186,6 @@ def run_mental_health_page():
             df_to_analyze = dataframes_by_condition[selected_condition_name]
             total_res, gender_res, subgroup_res = analyze_elderly_mental_condition_cached(df_to_analyze, elderly_age_groups_mental)
 
-            st.markdown(f"#### {selected_condition_name} 분석 결과")
             plot_type_tab1, plot_type_tab2, plot_type_tab3 = st.tabs([
                 "연도별 총계", "연도별 성별", "세부 연령대 및 성별"
             ])
@@ -222,10 +221,7 @@ def run_mental_health_page():
             all_conditions_summary_df_final = pd.concat(all_conditions_summaries_list).reset_index(drop=True)
 
             # 막대 그래프와 파이 차트를 같은 레벨에 순차적으로 표시
-            st.markdown(f"##### {selected_year_for_comparison_plots}년 질환별 환자수 비교 (막대)")
             plot_all_conditions_yearly_comparison(all_conditions_summary_df_final, selected_year_for_comparison_plots)
-            
-            st.markdown(f"##### {selected_year_for_comparison_plots}년 질환별 환자수 비율 (파이)")
             plot_pie_chart_by_year(all_conditions_summary_df_final, selected_year_for_comparison_plots)
         else: 
             st.info("정신질환 종합 비교를 위한 데이터가 충분하지 않습니다.")
