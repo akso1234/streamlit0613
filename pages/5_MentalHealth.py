@@ -284,10 +284,9 @@ def plot_sigungu_mental_patients_by_condition_year(df_sigungu_mental_total, sele
     if df_plot.empty or ('질환별_노인_환자수_총합' in df_plot.columns and df_plot['질환별_노인_환자수_총합'].sum() == 0):
         st.info(f"{selected_year}년 {selected_condition}에 대한 유의미한 구별 환자 수 데이터가 없습니다.")
         return
-    if '질환별_노인_환자수_총합' not in df_plot.columns: # 컬럼 존재 확인 추가
+    if '질환별_노인_환자수_총합' not in df_plot.columns:
         st.warning(f"{selected_condition}, {selected_year}년 데이터에 '질환별_노인_환자수_총합' 컬럼이 없습니다.")
         return
-
 
     df_plot = df_plot.sort_values(by='질환별_노인_환자수_총합', ascending=False)
 
@@ -305,14 +304,14 @@ def plot_sigungu_mental_patients_by_condition_year(df_sigungu_mental_total, sele
         if bar_patch.get_height() > 0:
             y_offset = bar_patch.get_height() * 0.01 
             if y_offset < 1 and bar_patch.get_height() > 0: y_offset = 3 
-            elif y_offset < 1 and bar_patch.get_height() <=0 : y_offset = -3 # 음수 막대 대비
+            elif y_offset < 1 and bar_patch.get_height() <=0 : y_offset = -3
 
             ax.text(
                 x=bar_patch.get_x() + bar_patch.get_width() / 2,
                 y=bar_patch.get_height() + y_offset, 
                 s=f"{int(bar_patch.get_height()):,}", 
                 ha='center',
-                va='bottom' if bar_patch.get_height() >=0 else 'top', # 음수 막대 대비
+                va='bottom' if bar_patch.get_height() >=0 else 'top',
                 fontsize=8
             )
     plt.tight_layout(); st.pyplot(fig)
@@ -328,14 +327,17 @@ def run_mental_health_page():
         "불안장애": "data/지역별 불안장애 진료현황(2019년~2023년).csv", "조울증": "data/지역별 조울증 진료현황(2019년~2023년).csv",
         "조현병": "data/지역별 조현병 진료현황(2019년~2023년).csv"
     }
-    # lonely_elderly_file_path_st = 'data/독거노인+현황(연령별_동별)_20250523002757.csv' # 이전 로직에서 사용, 현재는 불필요
-    # elderly_population_total_file_path_st = 'data/고령자현황_20250531210628.csv' # 이전 로직에서 사용, 현재는 불필요
-
+    
     elderly_age_groups_mental = ['60~69세', '70~79세', '80~89세', '90~99세', '100세 이상']
     available_years_for_mental_analysis = [2019, 2020, 2021, 2022, 2023]
 
-    if "selected_year_mental" not in st.session_state:
-        st.session_state.selected_year_mental = available_years_for_mental_analysis[-1] 
+    # selected_year_mental_tab2: main_tab2 (종합 비교)의 슬라이더 값
+    if "selected_year_mental_tab2" not in st.session_state:
+        st.session_state.selected_year_mental_tab2 = available_years_for_mental_analysis[-1]
+    
+    # selected_year_mental_tab3: main_tab3 (구별 분석)의 슬라이더 값
+    if "selected_year_mental_tab3" not in st.session_state:
+        st.session_state.selected_year_mental_tab3 = available_years_for_mental_analysis[-1]
 
 
     dataframes_by_condition = {}
@@ -349,9 +351,6 @@ def run_mental_health_page():
                 temp_summary = total_df.copy(); temp_summary['질환명'] = condition_key
                 all_conditions_summaries_list.append(temp_summary)
     
-    # df_sigungu_lonely_elderly_gender_st = preprocess_lonely_elderly_data_revised_cached(lonely_elderly_file_path_st) # 불필요
-    # df_sigungu_total_elderly_population_st = preprocess_elderly_population_total_cached(elderly_population_total_file_path_st) # 불필요
-    # df_sigungu_mental_patients_gender_all_conditions_st = aggregate_mental_patients_sigungu_gender_cached(dataframes_by_condition, elderly_age_groups_mental) # 불필요
     df_sigungu_mental_total_patients_for_tab3 = aggregate_mental_patients_sigungu_total_cached(dataframes_by_condition, elderly_age_groups_mental)
 
     if not dataframes_by_condition:
@@ -376,49 +375,54 @@ def run_mental_health_page():
     with main_tab2:
         st.subheader("정신질환 종합 비교 (서울시 전체)")
         
-        default_year_slider_tab2 = st.session_state.selected_year_mental
-        if default_year_slider_tab2 not in available_years_for_mental_analysis:
-            default_year_slider_tab2 = available_years_for_mental_analysis[-1]
-
-        selected_year_tab2 = st.slider(
-            "조회 연도 선택 (종합 비교 및 구별 분석용)", 
+        selected_year_val_tab2 = st.slider(
+            "조회 연도 선택 (종합 비교용)", 
             min_value=min(available_years_for_mental_analysis), 
             max_value=max(available_years_for_mental_analysis),
-            value=default_year_slider_tab2, 
+            value=st.session_state.selected_year_mental_tab2, 
             step=1,
-            key="mental_year_slider_main" 
+            key="mental_year_slider_tab2" # 각 탭의 슬라이더는 다른 key를 가져야 함
         )
-        if st.session_state.selected_year_mental != selected_year_tab2:
-            st.session_state.selected_year_mental = selected_year_tab2
-            st.rerun()
+        # 슬라이더 값이 변경되면 session_state 업데이트 (rerun은 필요 없음, Streamlit이 자동 처리)
+        st.session_state.selected_year_mental_tab2 = selected_year_val_tab2
         
-        current_selected_year_for_plots = st.session_state.selected_year_mental
+        current_selected_year_for_plots_tab2 = st.session_state.selected_year_mental_tab2
 
         if all_conditions_summaries_list:
             all_conditions_summary_df_final = pd.concat(all_conditions_summaries_list).reset_index(drop=True)
-            st.markdown(f"##### {current_selected_year_for_plots}년 질환별 환자수 비교 (막대)")
-            plot_all_conditions_yearly_comparison(all_conditions_summary_df_final, current_selected_year_for_plots)
-            st.markdown(f"##### {current_selected_year_for_plots}년 질환별 환자수 비율 (파이)")
-            plot_pie_chart_by_year(all_conditions_summary_df_final, current_selected_year_for_plots)
+            st.markdown(f"##### {current_selected_year_for_plots_tab2}년 질환별 환자수 비교 (막대)")
+            plot_all_conditions_yearly_comparison(all_conditions_summary_df_final, current_selected_year_for_plots_tab2)
+            st.markdown(f"##### {current_selected_year_for_plots_tab2}년 질환별 환자수 비율 (파이)")
+            plot_pie_chart_by_year(all_conditions_summary_df_final, current_selected_year_for_plots_tab2)
         else: st.info("정신질환 종합 비교를 위한 데이터가 충분하지 않습니다.")
 
     with main_tab3:
         st.subheader(f"구별 정신질환자 수")
         
-        # main_tab2에서 선택된 연도를 사용
-        selected_year_tab3 = st.session_state.selected_year_mental 
+        selected_year_val_tab3 = st.slider(
+            "조회 연도 선택 (구별 분석용)",
+            min_value=min(available_years_for_mental_analysis),
+            max_value=max(available_years_for_mental_analysis),
+            value=st.session_state.selected_year_mental_tab3,
+            step=1,
+            key="mental_year_slider_tab3" # 각 탭의 슬라이더는 다른 key를 가져야 함
+        )
+        # 슬라이더 값이 변경되면 session_state 업데이트
+        st.session_state.selected_year_mental_tab3 = selected_year_val_tab3
         
         selected_condition_tab3 = st.selectbox(
-            "분석할 질환 선택:", list(dataframes_by_condition.keys()), # 라벨 간소화
-            key="mental_condition_select_tab3_new" # 키 변경
+            "분석할 질환 선택:", list(dataframes_by_condition.keys()),
+            key="mental_condition_select_tab3_new"
         )
         
-        st.markdown(f"##### {selected_year_tab3}년 <{selected_condition_tab3}> 자치구별 노인 환자 수")
+        # 소제목 제거
+        # st.markdown(f"##### {selected_year_val_tab3}년 <{selected_condition_tab3}> 자치구별 노인 환자 수") 
+        
         if not df_sigungu_mental_total_patients_for_tab3.empty:
             plot_sigungu_mental_patients_by_condition_year(
                 df_sigungu_mental_total_patients_for_tab3, 
                 selected_condition_tab3, 
-                selected_year_tab3
+                selected_year_val_tab3 # 슬라이더에서 선택된 연도 사용
             )
         else:
             st.info("구별 정신질환자 수 데이터를 로드하거나 집계하는 데 실패했습니다.")
