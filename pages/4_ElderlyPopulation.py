@@ -345,7 +345,7 @@ def plot_yearly_elderly_ratio_notebook(df_merged_notebook, target_year_str):
 
 # --- Streamlit 페이지 레이아웃 ---
 def run_elderly_population_page():
-    st.title("👵 노인 인구 및 독거노인 현황")
+    st.title("노인 인구 및 독거노인 현황")
     set_korean_font()
 
     available_years_int = [2019, 2020, 2021, 2022, 2023]
@@ -408,9 +408,9 @@ def run_elderly_population_page():
     df_goryeong_districts_page, seoul_total_goryeong_data_page = preprocess_goryeong_data_cached(df_goryeong_raw_page)
 
     main_tab1, main_tab2, main_tab3 = st.tabs([
-        "📈 서울시 전체 고령화 추세",
-        "📉 서울시 전체 독거노인 추세",
-        "📊 자치구별 현황 비교"
+        "서울시 전체 고령화 추세",
+        "서울시 전체 독거노인 추세",
+        "자치구별 현황 비교"
     ])
 
     with main_tab1:
