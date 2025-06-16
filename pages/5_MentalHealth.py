@@ -153,16 +153,9 @@ def run_mental_health_page():
 
     if "selected_year_mental" not in st.session_state:
         st.session_state.selected_year_mental = available_years_int[-1]
-
-    selected_year_int = st.slider(
-        "조회 연도 선택",
-        min_value=available_years_int[0],
-        max_value=available_years_int[-1],
-        step=1,
-        value=st.session_state.selected_year_mental,
-        key="mental_year_slider_main" # 키 변경
-    )
-    st.session_state.selected_year_mental = selected_year_int
+    
+    # session_state에서 현재 선택된 연도를 가져옴. 슬라이더는 main_tab2 내부에 위치.
+    current_selected_year_for_plots = st.session_state.selected_year_mental
 
     dataframes_by_condition = {}
     all_conditions_summaries_list = []
@@ -183,7 +176,7 @@ def run_mental_health_page():
 
     with main_tab1:
         st.subheader("개별 정신질환 분석")
-        selected_condition_name = st.selectbox( # 질환 선택은 selectbox 유지
+        selected_condition_name = st.selectbox(
             "분석할 질환을 선택하세요:",
             list(dataframes_by_condition.keys()),
             key="mental_condition_select_main_tab_selectbox"
@@ -194,7 +187,6 @@ def run_mental_health_page():
             total_res, gender_res, subgroup_res = analyze_elderly_mental_condition_cached(df_to_analyze, elderly_age_groups_mental)
 
             st.markdown(f"#### {selected_condition_name} 분석 결과")
-            # 그래프 유형 선택 라디오 버튼 -> 탭으로 변경
             plot_type_tab1, plot_type_tab2, plot_type_tab3 = st.tabs([
                 "연도별 총계", "연도별 성별", "세부 연령대 및 성별"
             ])
@@ -207,18 +199,36 @@ def run_mental_health_page():
 
     with main_tab2:
         st.subheader("정신질환 종합 비교")
+
+        # 슬라이더를 "정신질환 종합 비교" 탭 내부에 배치
+        new_selected_year_from_slider = st.slider(
+            "조회 연도 선택 (종합 비교용)", # 라벨 변경
+            min_value=available_years_int[0],
+            max_value=available_years_int[-1],
+            step=1,
+            value=st.session_state.selected_year_mental,
+            key="mental_year_slider_tab2" # 키 변경
+        )
+
+        # 슬라이더 값이 변경되면 session_state를 업데이트하고 페이지를 rerun
+        if st.session_state.selected_year_mental != new_selected_year_from_slider:
+            st.session_state.selected_year_mental = new_selected_year_from_slider
+            st.rerun()
+        
+        # rerun 후 업데이트된 session_state.selected_year_mental 값을 사용
+        selected_year_for_comparison_plots = st.session_state.selected_year_mental
+
         if all_conditions_summaries_list:
             all_conditions_summary_df_final = pd.concat(all_conditions_summaries_list).reset_index(drop=True)
 
-            # 종합 비교 유형 선택 selectbox -> 탭으로 변경
-            overall_plot_tab1, overall_plot_tab2 = st.tabs([
-                "질환별 환자수 (막대)", "질환별 환자수 비율 (파이)"
-            ])
-            with overall_plot_tab1:
-                plot_all_conditions_yearly_comparison(all_conditions_summary_df_final, selected_year_int)
-            with overall_plot_tab2:
-                plot_pie_chart_by_year(all_conditions_summary_df_final, selected_year_int)
-        else: st.info("정신질환 종합 비교를 위한 데이터가 충분하지 않습니다.")
+            # 막대 그래프와 파이 차트를 같은 레벨에 순차적으로 표시
+            st.markdown(f"##### {selected_year_for_comparison_plots}년 질환별 환자수 비교 (막대)")
+            plot_all_conditions_yearly_comparison(all_conditions_summary_df_final, selected_year_for_comparison_plots)
+            
+            st.markdown(f"##### {selected_year_for_comparison_plots}년 질환별 환자수 비율 (파이)")
+            plot_pie_chart_by_year(all_conditions_summary_df_final, selected_year_for_comparison_plots)
+        else: 
+            st.info("정신질환 종합 비교를 위한 데이터가 충분하지 않습니다.")
 
 if __name__ == "__main__":
     run_mental_health_page()
