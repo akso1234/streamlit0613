@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from utils import set_korean_font, load_csv # load_geojson은 여기서는 불필요
+from utils import set_korean_font, load_csv 
 import os
 
 # --- 기존 데이터 전처리 및 분석 함수 (변경 없음) ---
@@ -85,13 +85,7 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
     
     if df_raw is None or df_raw.empty:
         st.warning(f"독거노인 파일 '{os.path.basename(file_path)}'을 로드하지 못했거나 비어있습니다.")
-        return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별']) # 빈 DataFrame에 컬럼 명시
-
-    # MultiIndex 컬럼 이름 확인 (디버깅용 - 필요시 주석 해제)
-    # print("DEBUG: df_raw.columns (Original MultiIndex from CSV)")
-    # for i, col_tuple in enumerate(df_raw.columns):
-    #     print(f"  Col {i}: {col_tuple}")
-    # print("DEBUG: End of df_raw.columns")
+        return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
     try:
         sido_col_tuple = df_raw.columns[0]
@@ -100,7 +94,6 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
         st.error("독거노인 파일의 컬럼 구조가 예상과 다릅니다 (지역 정보 컬럼 접근 불가).")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
-
     df_seoul = df_raw[df_raw[sido_col_tuple] == '서울특별시'].copy()
     df_gu_data = df_seoul[df_seoul[sigungu_col_tuple].str.endswith('구', na=False)].copy()
 
@@ -108,52 +101,59 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
         st.warning("독거노인 데이터에서 구별 데이터를 찾을 수 없습니다.")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
     
-    # 디버깅: df_gu_data의 컬럼 확인 (필요시 주석 해제)
-    # print(f"DEBUG: df_gu_data columns for processing: {df_gu_data.columns.tolist()}")
-
     result_data = []
-    # 파일의 첫 번째 레벨 컬럼에서 연도 정보 추출 (숫자 형태의 연도만)
     available_years_in_file = sorted(list(set(str(c[0]).strip() for c in df_gu_data.columns if isinstance(c, tuple) and len(c) > 0 and str(c[0]).strip().isdigit())))
     
-    # print(f"DEBUG: Available years in file for dokgo: {available_years_in_file}")
-
     for year_str in available_years_in_file:
-        if not (2021 <= int(year_str) <= 2023): # 파일에 2021, 2022, 2023년만 있으므로
+        if not (2021 <= int(year_str) <= 2023): 
             continue
         
-        # 제공해주신 CSV 파일의 헤더 구조를 바탕으로 컬럼명 튜플 정의
-        # Level 0: 연도 (예: '2021')
-        # Level 1: 상위 구분 (예: '합계') - 파일의 두번째 헤더 줄
-        # Level 2: 중간 구분 (예: '소계') - 파일의 세번째 헤더 줄
-        # Level 3: 하위 구분 (예: '계') - 파일의 네번째 헤더 줄
-        target_col_tuple_exact = (year_str, '합계', '소계', '계')
+        target_col_tuple_exact = (year_str, '합계', '소계', '계') 
         
         if target_col_tuple_exact not in df_gu_data.columns:
-            # print(f"DEBUG: {year_str}년 총 독거노인 수 컬럼 {target_col_tuple_exact}을(를) 찾을 수 없습니다.")
-            # print(f"DEBUG: 사용 가능한 컬럼 예시 (첫 5개 in df_gu_data): {df_gu_data.columns.tolist()[:5]}")
+            print(f"DEBUG (Dokgo): {year_str}년 총 독거노인 수 컬럼 {target_col_tuple_exact}을(를) 찾을 수 없습니다.")
+            print(f"DEBUG (Dokgo): 사용 가능한 컬럼 예시 (df_gu_data): {df_gu_data.columns.tolist()[:15]}")
             continue
             
         try:
+            # print(f"DEBUG (Dokgo): Processing year {year_str}")
+            # print(f"DEBUG (Dokgo): sigungu_col_tuple = {sigungu_col_tuple}")
+            # print(f"DEBUG (Dokgo): target_col_tuple_exact = {target_col_tuple_exact}")
+
+            if sigungu_col_tuple not in df_gu_data.columns or target_col_tuple_exact not in df_gu_data.columns:
+                print(f"ERROR (Dokgo): Year {year_str} - Required columns not found in df_gu_data before creating year_data.")
+                print(f"  sigungu_col_tuple exists: {sigungu_col_tuple in df_gu_data.columns}")
+                print(f"  target_col_tuple_exact exists: {target_col_tuple_exact in df_gu_data.columns}")
+                continue
+
             year_data = df_gu_data[[sigungu_col_tuple, target_col_tuple_exact]].copy()
+            # print(f"DEBUG (Dokgo): year_data columns BEFORE rename for year {year_str}: {year_data.columns.tolist()}")
+
             year_data.rename(columns={
                 sigungu_col_tuple: '시군구',
                 target_col_tuple_exact: '독거노인수'
             }, inplace=True)
+            # print(f"DEBUG (Dokgo): year_data columns AFTER rename for year {year_str}: {year_data.columns.tolist()}")
+            
             year_data['연도'] = int(year_str)
             result_data.append(year_data)
+        except KeyError as ke:
+            st.warning(f"{year_str}년 독거노인 데이터 처리 중 KeyError 발생 (컬럼 접근 오류): {ke}. 해당 연도 데이터를 건너뜁니다.")
+            print(f"DEBUG (Dokgo): KeyError details for year {year_str} - df_gu_data columns: {df_gu_data.columns.tolist()[:15]}")
+            continue
         except Exception as e:
-            st.warning(f"{year_str}년 독거노인 데이터 처리 중 예외 발생 (데이터프레임 생성 중): {e}")
+            st.warning(f"{year_str}년 독거노인 데이터 처리 중 예외 발생 (데이터프레임 생성/수정 중): {e}")
             continue
             
     if not result_data:
-        st.warning("처리할 수 있는 연도의 독거노인 데이터가 없습니다. (result_data is empty)")
+        st.warning("처리할 수 있는 연도의 독거노인 데이터가 없습니다. (result_data is empty for Dokgo)")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
     df_final_dokgo = pd.concat(result_data, ignore_index=True)
     
     if '독거노인수' not in df_final_dokgo.columns:
-        st.error("독거노인 데이터 결합 후 '독거노인수' 컬럼이 생성되지 않았습니다. 루프 내의 rename 로직을 확인하세요.")
-        # print(f"DEBUG: df_final_dokgo columns after concat: {df_final_dokgo.columns.tolist()}")
+        st.error("독거노인 데이터 결합 후 '독거노인수' 컬럼이 생성되지 않았습니다. (Dokgo) 루프 내 rename 로직 또는 컬럼명 확인 필요.")
+        print(f"DEBUG (Dokgo): df_final_dokgo columns after concat: {df_final_dokgo.columns.tolist()}")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
     df_final_dokgo['독거노인수'] = pd.to_numeric(df_final_dokgo['독거노인수'], errors='coerce').fillna(0).astype(int)
@@ -174,7 +174,7 @@ def preprocess_elderly_population_total_cached(file_path):
         sigungu_col_key = df_goryeong_raw.columns[1]
 
         df_filtered = df_goryeong_raw[df_goryeong_raw[sido_col_key] == '합계']
-        df_sigungu_rows = df_filtered[df_filtered[sigungu_col_key] != '소계'].copy() # 명시적 copy
+        df_sigungu_rows = df_filtered[df_filtered[sigungu_col_key] != '소계'].copy()
 
         df_sigungu_elderly_pop_list_total = []
         for index, row_data in df_sigungu_rows.iterrows():
@@ -190,10 +190,10 @@ def preprocess_elderly_population_total_cached(file_path):
                 if pop_col_key_target in row_data.index:
                     value_raw = row_data[pop_col_key_target]
                     if pd.notna(value_raw) and str(value_raw).strip() not in ['', '-']:
-                       try: # int 변환 시 오류 방지
+                       try:
                            total_elderly_val = int(str(value_raw).replace(',', '').strip())
                        except ValueError:
-                           total_elderly_val = 0 # 변환 실패 시 0으로
+                           total_elderly_val = 0
                 
                 df_sigungu_elderly_pop_list_total.append({
                     '시군구': sigungu_name, '연도': year_int, '총_65세_이상_노인인구': total_elderly_val
@@ -347,7 +347,7 @@ def plot_sigungu_lonely_vs_mental_gender_ratio(df_merged, selected_condition, se
     fig, ax = plt.subplots(figsize=(20, 10))
     sns.barplot(
         data=df_plot, x='시군구', y='독거노인_대비_질환자_비율(%)', hue='성별',
-        order=order_sigungu, palette={'남': 'cornflowerblue', '여': 'salmon', '전체': 'grey'}, ax=ax # '전체' 색상 추가
+        order=order_sigungu, palette={'남': 'cornflowerblue', '여': 'salmon', '전체': 'grey'}, ax=ax
     )
     ax.set_title(f'서울시 구별 <{selected_condition}> 독거노인 성별 대비 환자 비율 ({selected_year}년)', fontsize=18)
     ax.set_xlabel('시군구', fontsize=14); ax.set_ylabel(f'{selected_condition} 환자 비율 (%)', fontsize=14)
@@ -408,14 +408,11 @@ def run_mental_health_page():
     elderly_population_total_file_path_st = 'data/고령자현황_20250531210628.csv'
 
     elderly_age_groups_mental = ['60~69세', '70~79세', '80~89세', '90~99세', '100세 이상']
-    # 독거노인 파일이 2021, 2022, 2023년 데이터만 포함하므로, 연도 선택 범위를 이에 맞춤
     available_years_for_dokgo_analysis = [2021, 2022, 2023]
-    # 정신질환 데이터는 2019-2023 포함
     available_years_for_mental_analysis = [2019, 2020, 2021, 2022, 2023]
 
-
     if "selected_year_mental" not in st.session_state:
-        st.session_state.selected_year_mental = available_years_for_dokgo_analysis[-1] # 기본값을 2023으로
+        st.session_state.selected_year_mental = available_years_for_dokgo_analysis[-1]
 
 
     dataframes_by_condition = {}
@@ -457,7 +454,7 @@ def run_mental_health_page():
         st.subheader("정신질환 종합 비교 (서울시 전체)")
         
         default_year_slider_tab2 = st.session_state.selected_year_mental
-        if default_year_slider_tab2 not in available_years_for_mental_analysis: # 정신질환은 2019년부터
+        if default_year_slider_tab2 not in available_years_for_mental_analysis:
             default_year_slider_tab2 = available_years_for_mental_analysis[-1]
 
         selected_year_tab2 = st.slider(
@@ -486,7 +483,7 @@ def run_mental_health_page():
         st.subheader("구별 상세 분석")
         
         default_year_tab3 = st.session_state.selected_year_mental
-        if default_year_tab3 not in available_years_for_dokgo_analysis: # 구별 상세는 독거노인 연도 기준
+        if default_year_tab3 not in available_years_for_dokgo_analysis:
             default_year_tab3 = available_years_for_dokgo_analysis[-1]
         
         try:
@@ -508,32 +505,20 @@ def run_mental_health_page():
         
         df_sigungu_lonely_vs_mental_merged = pd.DataFrame()
         if not df_sigungu_mental_patients_gender_all_conditions_st.empty and not df_sigungu_lonely_elderly_gender_st.empty:
-            df_dokgo_for_merge_gender = df_sigungu_lonely_elderly_gender_st
-            # 독거노인 데이터에 '성별'이 '전체'로만 되어 있으므로, 정신질환 데이터도 '성별'을 '전체'로 만들어주거나,
-            # 정신질환자 데이터를 성별 구분 없이 합산하여 '성별'='전체'로 만들어야 올바른 merge 가능.
-            # 현재 df_sigungu_mental_patients_gender_all_conditions_st는 성별('남','여')로 구분되어 있음.
-            # 이 탭의 첫번째 그래프는 "독거노인 성별 대비 비율" 이므로, 독거노인 데이터에 성별이 없으면 의미가 없음.
-            # 따라서, 이 부분은 경고 메시지를 표시하고 그래프를 그리지 않는 방향으로 유지.
-            
-            # 만약 '독거노인수(성별구분)' 데이터가 있다면 아래 merge 로직 사용.
-            # 현재는 df_sigungu_lonely_elderly_gender_st의 '성별' 컬럼이 '전체'로만 되어 있어,
-            # df_sigungu_mental_patients_gender_all_conditions_st ('남','여')와 매칭이 안됨.
-            
-            # 임시: 정신질환 데이터를 '성별'='전체'로 합산하여 독거노인 데이터와 merge 시도 (그래프 의미는 달라짐)
             temp_mental_total = df_sigungu_mental_patients_gender_all_conditions_st.groupby(
                 ['연도', '시군구', '질환명']
             )['정신질환_환자수'].sum().reset_index()
-            temp_mental_total['성별'] = '전체' # 독거노인 데이터와 merge 키를 맞추기 위해
+            temp_mental_total['성별'] = '전체'
 
             df_sigungu_lonely_vs_mental_merged = pd.merge(
-                temp_mental_total, # 성별 합산된 정신질환자 수
-                df_sigungu_lonely_elderly_gender_st, # '성별'='전체'인 독거노인 수
+                temp_mental_total, 
+                df_sigungu_lonely_elderly_gender_st, 
                 on=['연도', '시군구', '성별'], how='left'
             )
             if not df_sigungu_lonely_vs_mental_merged.empty:
                 df_sigungu_lonely_vs_mental_merged['독거노인수'] = pd.to_numeric(df_sigungu_lonely_vs_mental_merged['독거노인수'], errors='coerce').fillna(0)
                 df_sigungu_lonely_vs_mental_merged['정신질환_환자수'] = pd.to_numeric(df_sigungu_lonely_vs_mental_merged['정신질환_환자수'], errors='coerce').fillna(0)
-                if '독거노인수' in df_sigungu_lonely_vs_mental_merged.columns and df_sigungu_lonely_vs_mental_merged['독거노인수'].sum() > 0 : # 분모가 0이 아닐 때만
+                if '독거노인수' in df_sigungu_lonely_vs_mental_merged.columns and df_sigungu_lonely_vs_mental_merged['독거노인수'].sum() > 0 :
                     df_sigungu_lonely_vs_mental_merged['독거노인_대비_질환자_비율(%)'] = np.where(
                         df_sigungu_lonely_vs_mental_merged['독거노인수'] > 0,
                         (df_sigungu_lonely_vs_mental_merged['정신질환_환자수'] / df_sigungu_lonely_vs_mental_merged['독거노인수']) * 100, 0
