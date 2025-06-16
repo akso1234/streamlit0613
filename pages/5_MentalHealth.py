@@ -140,7 +140,7 @@ def plot_pie_chart_by_year(all_conditions_summary_df, selected_year_int):
 
 # --- Streamlit 페이지 레이아웃 ---
 def run_mental_health_page():
-    st.title("🧠 서울시 노인 정신질환 현황")
+    st.title("서울시 노인 정신질환 현황")
     set_korean_font()
 
     file_paths_mental_health = {
@@ -155,7 +155,7 @@ def run_mental_health_page():
         st.session_state.selected_year_mental = available_years_int[-1]
 
     selected_year_int = st.slider(
-        "조회 연도 선택 (종합 비교용)",
+        "조회 연도 선택",
         min_value=available_years_int[0],
         max_value=available_years_int[-1],
         step=1,
@@ -193,7 +193,7 @@ def run_mental_health_page():
             df_to_analyze = dataframes_by_condition[selected_condition_name]
             total_res, gender_res, subgroup_res = analyze_elderly_mental_condition_cached(df_to_analyze, elderly_age_groups_mental)
 
-            st.markdown(f"#### 📊 {selected_condition_name} 분석 결과")
+            st.markdown(f"#### {selected_condition_name} 분석 결과")
             # 그래프 유형 선택 라디오 버튼 -> 탭으로 변경
             plot_type_tab1, plot_type_tab2, plot_type_tab3 = st.tabs([
                 "연도별 총계", "연도별 성별", "세부 연령대 및 성별"
