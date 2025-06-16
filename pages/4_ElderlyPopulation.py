@@ -352,18 +352,12 @@ def run_elderly_population_page():
     available_years_str = [str(y) for y in available_years_int] # 노트북용 연도
     available_years_str_dokgo = [f"{y}년" for y in available_years_int] # 독거노인 데이터는 "년" 포함
 
+    # session_state에 선택된 연도 초기화
     if "selected_year_elderly" not in st.session_state:
         st.session_state.selected_year_elderly = available_years_int[-1]
 
-    selected_year_int = st.slider(
-        "조회 연도 선택",
-        min_value=available_years_int[0],
-        max_value=available_years_int[-1],
-        step=1,
-        value=st.session_state.selected_year_elderly,
-        key="elderly_year_slider_main"
-    )
-    st.session_state.selected_year_elderly = selected_year_int
+    # 모든 탭에서 사용할 연도 관련 변수를 session_state 기반으로 설정
+    selected_year_int = st.session_state.selected_year_elderly
     selected_year_dokgo_format = f"{selected_year_int}년"
     selected_year_goryeong_format = str(selected_year_int) # 고령자현황(페이지용)
     selected_year_notebook_format = str(selected_year_int) # 노트북 데이터용
@@ -432,7 +426,24 @@ def run_elderly_population_page():
         plot_top_gu_dokgo_trend(df_gu_dokgo_s1923, year_cols_dokgo_s1923_from_data if year_cols_dokgo_s1923_from_data else available_years_str_dokgo, N=10)
 
     with main_tab3:
-        st.subheader(f"{selected_year_int}년 자치구별 현황")
+        # 슬라이더를 "자치구별 현황 비교" 탭 내부에 배치
+        new_selected_year_from_slider = st.slider(
+            "조회 연도 선택",
+            min_value=available_years_int[0],
+            max_value=available_years_int[-1],
+            step=1,
+            value=st.session_state.selected_year_elderly, # 현재 session_state 값으로 슬라이더 초기화
+            key="elderly_year_slider_main_tab3" # 새로운 키 또는 기존 키 사용 (여기서는 새 키 권장)
+        )
+
+        # 슬라이더 값이 변경되면 session_state를 업데이트하고 페이지를 rerun함
+        if st.session_state.selected_year_elderly != new_selected_year_from_slider:
+            st.session_state.selected_year_elderly = new_selected_year_from_slider
+            st.rerun() # 페이지를 다시 실행하여 모든 탭에 변경된 연도 적용
+
+        # 아래 내용은 rerun 후에 업데이트된 session_state 기반의 연도 변수들을 사용하게 됨
+        st.subheader(f"{selected_year_int}년 자치구별 현황") # selected_year_int는 이제 session_state.selected_year_elderly를 반영
+        
         sub_tab_gu1, sub_tab_gu2, sub_tab_gu3, sub_tab_gu4, sub_tab_gu5 = st.tabs([
             "고령화율", "독거노인 수", "노인 중 독거노인 비율", "전체 대비 노인 비율", "독거노인 지도"
         ])
