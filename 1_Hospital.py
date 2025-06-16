@@ -3,8 +3,7 @@ import streamlit as st
 
 # 1. st.set_page_config()를 스크립트의 가장 먼저 실행되는 Streamlit 명령으로 설정합니다.
 st.set_page_config(
-    page_title="서울시 병원 대시보드", 
-    page_icon="🏥",                 
+    page_title="서울시 병원 대시보드",                  
     layout="wide"                  
 )
 
@@ -28,7 +27,7 @@ set_korean_font()
 
 
 def run_hospital_page():
-    st.title("🏥 병원 관련 대시보드")
+    st.title("병원 관련 대시보드")
 
     if "selected_year_hospital" not in st.session_state:
         st.session_state.selected_year_hospital = 2023
@@ -53,10 +52,10 @@ def run_hospital_page():
         return
 
     tab1, tab2, tab3, tab4 = st.tabs([
-        "🔍 Choropleth (지도)", 
-        "📊 자치구별 병원 수", 
-        "🌡️ 평균 병상 수 히트맵",
-        "🛏️ 전체 병원/병상 집계"
+        "지도 히트맵", 
+        "자치구별 병원 수", 
+        "평균 병상 수 히트맵",
+        "전체 병원/병상 집계"
     ])
 
     with tab1:
@@ -85,14 +84,14 @@ def run_hospital_page():
             st.info("구별 평균 병상 수 데이터가 없어 지도를 표시할 수 없습니다.")
 
     with tab2: 
-        st.subheader(f"🏥 {selected_year}년 구별 의료기관 수 막대그래프") 
+        st.subheader(f"{selected_year}년 구별 의료기관 수 막대그래프") 
         if df_hosp is not None and not df_hosp.empty: 
             draw_hospital_count_bar_charts(df_hosp)
         else:
             st.info("의료기관 수 데이터가 없어 막대 그래프를 그릴 수 없습니다.")
 
     with tab3: 
-        st.subheader(f"🌡️ {selected_year}년 평균 병상 수 히트맵") 
+        st.subheader(f"{selected_year}년 평균 병상 수 히트맵") 
         if df_hosp is not None and not df_hosp.empty and \
            df_beds is not None and not df_beds.empty:
             draw_avg_beds_heatmap(df_hosp, df_beds) 
