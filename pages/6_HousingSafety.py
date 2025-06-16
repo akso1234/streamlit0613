@@ -6,6 +6,7 @@ import seaborn as sns
 from utils import set_korean_font, load_csv 
 import os
 from matplotlib.ticker import PercentFormatter # 히트맵 및 비율 축 포맷팅을 위해 추가
+# import traceback # 디버깅용
 
 # --- 데이터 전처리 함수 ---
 @st.cache_data
@@ -43,8 +44,8 @@ def preprocess_elderly_data_for_housing_cached(df_elderly_raw):
         else:
             df_elderly_processed.columns = new_columns
 
-        target_pop_col_tuple = None # 65세 이상 인구
-        total_pop_col_tuple = None  # 전체 인구
+        target_pop_col_tuple = None 
+        total_pop_col_tuple = None  
 
         if isinstance(df_elderly_processed.columns, pd.MultiIndex) and len(df_elderly_processed.columns.levels) == 4:
             for col_tuple in df_elderly_processed.columns:
@@ -52,18 +53,14 @@ def preprocess_elderly_data_for_housing_cached(df_elderly_raw):
                 if c0.startswith('2023'):
                     if '65세이상 인구' in c1 and c2 == '소계' and c3 == '소계':
                         target_pop_col_tuple = col_tuple
-                    if '전체인구' in c1 and c2 == '소계' and c3 == '소계': # 전체 인구 컬럼 가정
+                    if '전체인구' in c1 and c2 == '소계' and c3 == '소계': 
                         total_pop_col_tuple = col_tuple 
-            if target_pop_col_tuple and total_pop_col_tuple: # 두 컬럼 모두 찾아야 함
-                 pass # 정상
-            else: # 자동 탐색 실패 시 대체 로직 또는 에러 처리 (이전 코드 참고)
+            if not (target_pop_col_tuple and total_pop_col_tuple) :
                 st.error("고령자현황: 2023년 65세 이상 인구 '소계' 또는 '전체인구' 컬럼을 자동 탐색하지 못했습니다.")
-                # print("DEBUG (Elderly): Available columns:", df_elderly_processed.columns.tolist()[:10])
                 return pd.DataFrame()
         else:
             st.warning("고령자현황: 예상된 4레벨 MultiIndex가 아니거나, 컬럼 구조가 다릅니다.")
             return pd.DataFrame()
-
 
         if target_pop_col_tuple is None or total_pop_col_tuple is None:
              st.error("고령자현황: 2023년 65세 이상 인구 '소계' 또는 '전체인구' 컬럼을 찾지 못했습니다.")
@@ -81,17 +78,15 @@ def preprocess_elderly_data_for_housing_cached(df_elderly_raw):
            total_pop_col_tuple in df_filtered_elderly.columns:
             
             df_final_elderly = df_filtered_elderly[[gu_info_col_tuple_elderly, target_pop_col_tuple, total_pop_col_tuple]].copy()
-            df_final_elderly.columns = ['발생장소_구', '노인인구수', '전체인구수'] # 전체인구수 컬럼 추가
+            df_final_elderly.columns = ['발생장소_구', '노인인구수', '전체인구수']
             df_final_elderly['발생장소_구'] = df_final_elderly['발생장소_구'].astype(str).str.strip()
             df_final_elderly['노인인구수'] = pd.to_numeric(df_final_elderly['노인인구수'].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
             df_final_elderly['전체인구수'] = pd.to_numeric(df_final_elderly['전체인구수'].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
             df_final_elderly.dropna(subset=['발생장소_구', '노인인구수', '전체인구수'], inplace=True)
 
-            # 고령인구비율 계산
             df_final_elderly['고령인구비율'] = np.where(
                 df_final_elderly['전체인구수'] > 0,
-                (df_final_elderly['노인인구수'] / df_final_elderly['전체인구수']), # 비율로 저장 (곱하기 100은 시각화 시 처리)
-                0
+                (df_final_elderly['노인인구수'] / df_final_elderly['전체인구수']),0
             ).astype(float)
             return df_final_elderly
         else:
@@ -122,39 +117,28 @@ def preprocess_housing_data_cached(df_housing_raw):
         else:
              df_housing_processed.columns = new_cols_h
         
-        target_old_housing_col_tuple = None  # 30년 이상 주택수 (계)
-        total_housing_col_tuple = None # 전체 주택수 (계, 계) - 이 파일 구조에서는 직접적인 단일 컬럼이 아닐 수 있음
+        target_old_housing_col_tuple = None
+        col_20_to_30_total_tuple = None     
+        year_prefix_housing = '2023'        
 
         if isinstance(df_housing_processed.columns, pd.MultiIndex) and len(df_housing_processed.columns.levels) == 3:
-            # '2023'년 데이터만 사용한다고 가정 (Colab 코드와 유사하게)
-            year_prefix_housing = '2023' 
             for col_tuple_h in df_housing_processed.columns:
                 c0_h, c1_h, c2_h = (str(col_tuple_h[i]).strip() for i in range(3))
                 if c0_h.startswith(year_prefix_housing):
                     if c1_h in ["30년이상", "30년 이상"] and c2_h == "계":
                         target_old_housing_col_tuple = col_tuple_h
-                    # 전체 주택수 (계, 계) 컬럼 찾기 - Colab 코드에서는 직접 더해서 만들었음.
-                    # 여기서는 노후기간별 '계'의 '계'를 전체 주택수로 가정 (파일 구조에 따라 매우 다를 수 있음)
-                    # 제공된 CSV 에서는 3번째 컬럼이 ('2023', '20년~30년미만', '계')
-                    # 아홉번째 컬럼이 ('2023', '30년이상', '계') 임.
-                    # 이들을 더해서 전체 주택수를 만들어야 함.
-                    # 정확한 "전체 주택 수" 컬럼을 찾아야 함.
-                    # Colab 코드에서는 '20년~30년미만 계' + '30년이상 계'로 만듦.
-                    # 우선, 파일에 '계','계','계' 형태의 컬럼이 있는지 확인 (가장 상위 '계')
-                    if c1_h == "계" and c2_h == "계": # ('2023', '계', '계')
-                        total_housing_col_tuple = col_tuple_h
+                    elif "20년~30년미만" in c1_h and c2_h == "계": 
+                        col_20_to_30_total_tuple = col_tuple_h
+            
+            if target_old_housing_col_tuple is None:
+                 st.error("노후 주택 데이터: 2023년 '30년 이상 계' 컬럼을 찾지 못했습니다.")
+                 return pd.DataFrame()
+            if col_20_to_30_total_tuple is None: # 20-30년 컬럼도 확인
+                 st.error("노후 주택 데이터: 2023년 '20년~30년미만 계' 컬럼을 찾지 못했습니다. (전체 주택수 계산에 필요)")
+                 return pd.DataFrame()
         else:
             st.warning("노후주택: 예상된 3레벨 MultiIndex가 아니거나, 컬럼 구조가 다릅니다.")
             return pd.DataFrame()
-        
-        if target_old_housing_col_tuple is None:
-            st.error("노후 주택 데이터: 2023년 '30년 이상 계' 컬럼을 찾지 못했습니다.")
-            return pd.DataFrame()
-        if total_housing_col_tuple is None: # 만약 ('2023','계','계') 컬럼이 없다면, Colab처럼 계산 필요
-            st.warning("노후 주택 데이터: 2023년 전체 주택수('계','계') 컬럼을 찾지 못했습니다. 계산 로직이 필요할 수 있습니다.")
-            # 이 경우, Colab 코드처럼 '20년~30년미만 계'와 '30년이상 계'를 찾아 더하는 로직 필요.
-            # 여기서는 일단 진행하고, 나중에 병합 시점에 total_housing_col_tuple이 없으면 에러 처리.
-            # 또는, 이 함수에서 바로 계산하도록 수정. (아래에서 수정)
 
         if len(df_housing_processed.columns) < 2:
             st.error("노후 주택 데이터: 자치구 정보 컬럼이 부족합니다.")
@@ -163,59 +147,53 @@ def preprocess_housing_data_cached(df_housing_raw):
 
         df_filtered_housing = df_housing_processed[df_housing_processed[gu_info_col_tuple_housing].astype(str).str.strip() != '소계'].copy()
         
-        cols_to_extract_housing = [gu_info_col_tuple_housing, target_old_housing_col_tuple]
-        if total_housing_col_tuple: # 전체 주택수 컬럼이 있다면 사용
-            cols_to_extract_housing.append(total_housing_col_tuple)
+        cols_to_extract_housing = [gu_info_col_tuple_housing, target_old_housing_col_tuple, col_20_to_30_total_tuple]
         
         if all(col in df_filtered_housing.columns for col in cols_to_extract_housing):
             df_final_housing = df_filtered_housing[cols_to_extract_housing].copy()
-            new_col_names_housing = ['발생장소_구', '노후주택수']
-            if total_housing_col_tuple:
-                new_col_names_housing.append('전체주택수')
-            df_final_housing.columns = new_col_names_housing
+            df_final_housing.rename(columns={
+                gu_info_col_tuple_housing: '발생장소_구',
+                target_old_housing_col_tuple: '노후주택수_30년이상',
+                col_20_to_30_total_tuple: '주택수_20년_30년미만'
+            }, inplace=True)
             
             df_final_housing['발생장소_구'] = df_final_housing['발생장소_구'].astype(str).str.strip()
-            df_final_housing['노후주택수'] = pd.to_numeric(df_final_housing['노후주택수'].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
+            df_final_housing['노후주택수_30년이상'] = pd.to_numeric(df_final_housing['노후주택수_30년이상'].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
+            df_final_housing['주택수_20년_30년미만'] = pd.to_numeric(df_final_housing['주택수_20년_30년미만'].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
+
+            # "전체주택수"는 모든 기간의 주택 합계여야 함.
+            # 현재는 20년~30년미만 + 30년이상을 더함. 0~20년 미만 주택 데이터가 필요.
+            # 임시로 Colab 코드처럼 '계', '계' 컬럼을 찾아보거나, 없다면 현재 방식 사용.
+            total_housing_col_explicit = None
+            for col_tuple_h_total in df_housing_processed.columns: # 원본에서 다시 검색
+                c0, c1, c2 = (str(col_tuple_h_total[i]).strip() for i in range(3))
+                if c0.startswith(year_prefix_housing) and c1 == "계" and c2 == "계":
+                    total_housing_col_explicit = col_tuple_h_total
+                    break
             
-            if '전체주택수' in df_final_housing.columns:
-                df_final_housing['전체주택수'] = pd.to_numeric(df_final_housing['전체주택수'].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
-                df_final_housing['노후주택비율'] = np.where(
-                    df_final_housing['전체주택수'] > 0,
-                    (df_final_housing['노후주택수'] / df_final_housing['전체주택수']), # 비율로 저장
-                    0
-                ).astype(float)
-            else: # 전체 주택수 컬럼을 찾지 못한 경우, Colab 코드처럼 계산 시도
-                # 이 부분은 실제 컬럼명에 따라 매우 달라질 수 있음.
-                # 예시: ('2023', '20년~30년미만', '계') 와 ('2023', '30년이상', '계')
-                col_20_30_key = None
-                for col_tuple_h in df_filtered_housing.columns: # df_filtered_housing 에서 찾아야 함
-                    if isinstance(col_tuple_h, tuple) and len(col_tuple_h)==3 and str(col_tuple_h[0]).strip().startswith('2023') and \
-                       "20년~30년미만" in str(col_tuple_h[1]).strip() and str(col_tuple_h[2]).strip() == "계":
-                        col_20_30_key = col_tuple_h
-                        break
-                if col_20_30_key and target_old_housing_col_tuple: # target_old_housing_col_tuple는 30년이상 주택수
-                    val_20_30 = pd.to_numeric(df_filtered_housing[col_20_30_key].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0)
-                    val_30_plus = pd.to_numeric(df_filtered_housing[target_old_housing_col_tuple].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0) # 이미 df_final_housing에 있음
-                    df_final_housing['전체주택수'] = val_20_30 + df_final_housing['노후주택수'] # 노후주택수는 30년 이상이므로, 다른 기간과 더해야 함.
-                                                                                            # 정확한 전체 주택수 컬럼을 찾는 것이 중요.
-                                                                                            # 여기서는 Colab과 같이 20-30년 + 30년 이상을 더하는 방식으로 가정.
-                                                                                            # 하지만 이는 전체 주택수가 아닐 수 있음. (0-20년 주택 누락)
-                                                                                            # **이 부분은 파일 구조를 보고 정확한 전체 주택수 컬럼을 찾거나 계산해야 합니다.**
-                    df_final_housing['노후주택비율'] = np.where(
-                        df_final_housing['전체주택수'] > 0,
-                        (df_final_housing['노후주택수'] / df_final_housing['전체주택수']), 0
-                    ).astype(float)
-                else:
-                    st.warning("노후주택: 전체 주택수를 계산할 수 없어 노후주택비율을 생성하지 못했습니다.")
-                    df_final_housing['노후주택비율'] = 0.0
+            if total_housing_col_explicit and total_housing_col_explicit in df_filtered_housing.columns:
+                df_final_housing['전체주택수'] = pd.to_numeric(df_filtered_housing[total_housing_col_explicit].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
+            else:
+                st.warning("노후주택: 명시적인 '전체 주택 수(계,계)' 컬럼을 찾지 못했습니다. 20년 이상 주택수로 '전체주택수'를 근사합니다.")
+                df_final_housing['전체주택수'] = df_final_housing['주택수_20년_30년미만'] + df_final_housing['노후주택수_30년이상']
 
-
-            df_final_housing.dropna(subset=['발생장소_구', '노후주택수'], inplace=True)
+            df_final_housing['노후주택비율'] = np.where(
+                df_final_housing['전체주택수'] > 0,
+                (df_final_housing['노후주택수_30년이상'] / df_final_housing['전체주택수']), 0
+            ).astype(float)
+            
+            df_final_housing.rename(columns={'노후주택수_30년이상': '노후주택수'}, inplace=True)
+            df_final_housing = df_final_housing[['발생장소_구', '노후주택수', '전체주택수', '노후주택비율']]
+            df_final_housing.dropna(subset=['발생장소_구', '노후주택수', '전체주택수', '노후주택비율'], inplace=True)
             return df_final_housing
         else:
-            st.error("노후 주택 데이터: 필요한 컬럼(자치구 또는 노후주택수)을 필터링된 데이터에서 찾을 수 없습니다.")
+            st.error("노후 주택 데이터: 필요한 컬럼(자치구, 노후주택수 관련)을 필터링된 데이터에서 찾을 수 없습니다.")
             return pd.DataFrame()
-    except Exception as e: st.error(f"노후 주택 데이터 전처리 중 예외: {e}"); return pd.DataFrame()
+    except Exception as e: 
+        st.error(f"노후 주택 데이터 전처리 중 예외: {e}")
+        # import traceback # 디버깅용
+        # print("DEBUG (Housing Preprocess): Exception details:", traceback.format_exc())
+        return pd.DataFrame()
 
 
 # --- 시각화 함수 ---
@@ -268,7 +246,6 @@ def plot_pie_major_incident_causes(df_rescue, top_n=7):
     ax.set_title(f'주요 사고원인 비율 (상위 {top_n}개 및 기타)', fontsize=16, pad=20); ax.axis('equal')
     plt.tight_layout(); st.pyplot(fig)
 
-# 상관관계 및 버블차트용 시각화 함수 (비율 기반으로 수정)
 def plot_correlation_scatter_ratio(merged_df, x_col_ratio, y_col_incident, title_text, x_label_text):
     if merged_df.empty or x_col_ratio not in merged_df.columns or y_col_incident not in merged_df.columns: st.info(f"'{title_text}' 산점도를 그릴 데이터가 없습니다."); return
     if not pd.api.types.is_numeric_dtype(merged_df[x_col_ratio]) or not pd.api.types.is_numeric_dtype(merged_df[y_col_incident]): st.warning(f"산점도용 컬럼('{x_col_ratio}', '{y_col_incident}') 중 숫자형이 아닌 것이 있습니다."); return
@@ -277,13 +254,11 @@ def plot_correlation_scatter_ratio(merged_df, x_col_ratio, y_col_incident, title
         st.write(f"**상관계수 ({x_label_text} vs {y_col_incident}): {correlation:.3f}**")
     except Exception as e:
         st.warning(f"상관계수 계산 중 오류 발생: {e}")
-        correlation = None
-
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.regplot(x=x_col_ratio, y=y_col_incident, data=merged_df, ax=ax, color='darkcyan', scatter_kws={'s':60, 'alpha':0.65, 'edgecolor':'black'}, line_kws={'color':'red', 'linewidth':1.5})
     ax.set_title(title_text, fontsize=15); ax.set_xlabel(x_label_text, fontsize=12); ax.set_ylabel(y_col_incident, fontsize=12)
     ax.grid(True, linestyle=':', alpha=0.6)
-    ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0)) # X축을 퍼센트로 표시
+    ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0)) 
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
     plt.tight_layout(); st.pyplot(fig)
 
@@ -299,7 +274,7 @@ def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
         if denominator == 0: denominator = 1e-9
         scaled_bubble_sizes = (bubble_sizes_data - bubble_sizes_data.min()) / denominator * (max_bubble_size - min_bubble_size) + min_bubble_size
         scaled_bubble_sizes[bubble_sizes_data == 0] = min_bubble_size / 2
-    scatter_plot = ax.scatter(x='노후주택비율', y='고령인구비율', s=scaled_bubble_sizes, c=df_final_merged[f'{target_cause_for_bubble}건수'], cmap='YlOrRd', alpha=0.7, edgecolors='grey', linewidth=0.5, data=df_final_merged) # cmap 변경
+    scatter_plot = ax.scatter(x='노후주택비율', y='고령인구비율', s=scaled_bubble_sizes, c=df_final_merged[f'{target_cause_for_bubble}건수'], cmap='YlOrRd', alpha=0.7, edgecolors='grey', linewidth=0.5, data=df_final_merged)
     top_n_districts = df_final_merged.sort_values(by=f'{target_cause_for_bubble}건수', ascending=False).head(7)
     for _, row_data in top_n_districts.iterrows(): ax.text(row_data['노후주택비율'] + 0.002, row_data['고령인구비율'] + 0.001, row_data['발생장소_구'], fontsize=9, color='black', ha='left', va='bottom')
     ax.set_title(f'노후 주택 비율, 고령 인구 비율과 {target_cause_for_bubble} 발생 건수', fontsize=16, pad=15)
@@ -309,32 +284,23 @@ def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
     cbar = fig.colorbar(scatter_plot, ax=ax, label=f'{target_cause_for_bubble} 발생 건수'); cbar.ax.tick_params(labelsize=10)
     ax.grid(True, linestyle=':', alpha=0.6); plt.tight_layout(); st.pyplot(fig)
 
-# 히트맵 함수 (Colab 코드에서 가져옴)
 def plot_heatmap_housing_elderly_incident_ratio(df_merged_ratio, accident_col_name, target_safety_accident_cause):
     if df_merged_ratio.empty or not all(col in df_merged_ratio.columns for col in ['노후주택비율', '고령인구비율', accident_col_name]):
         st.info("히트맵 생성에 필요한 데이터가 부족합니다.")
         return
-    
     num_bins = 5
     try:
         df_merged_ratio['노후주택비율_bin_label'] = pd.cut(
-            df_merged_ratio['노후주택비율'],
-            bins=num_bins, precision=2, include_lowest=True,
+            df_merged_ratio['노후주택비율'], bins=num_bins, precision=2, include_lowest=True,
             labels=[f'{i*100/num_bins:.0f}~{(i+1)*100/num_bins:.0f}%' for i in range(num_bins)]
         )
         df_merged_ratio['고령인구비율_bin_label'] = pd.cut(
-            df_merged_ratio['고령인구비율'],
-            bins=num_bins, precision=2, include_lowest=True,
+            df_merged_ratio['고령인구비율'], bins=num_bins, precision=2, include_lowest=True,
             labels=[f'{i*100/num_bins:.0f}~{(i+1)*100/num_bins:.0f}%' for i in range(num_bins)]
         )
-
         heatmap_data_ratio = df_merged_ratio.pivot_table(
-            values=accident_col_name,
-            index='고령인구비율_bin_label',
-            columns='노후주택비율_bin_label',
-            aggfunc='mean'
-        ).sort_index(ascending=False)
-
+            values=accident_col_name, index='고령인구비율_bin_label', columns='노후주택비율_bin_label',
+            aggfunc='mean').sort_index(ascending=False)
         if not heatmap_data_ratio.empty:
             fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 8))
             sns.heatmap(heatmap_data_ratio, annot=True, fmt=".1f", cmap="YlOrRd", linewidths=.5, 
@@ -344,15 +310,10 @@ def plot_heatmap_housing_elderly_incident_ratio(df_merged_ratio, accident_col_na
             ax_heatmap.set_ylabel('고령 인구 비율 (65세 이상) 구간', fontsize=12)
             plt.setp(ax_heatmap.get_xticklabels(), rotation=45, ha="right")
             plt.setp(ax_heatmap.get_yticklabels(), rotation=0)
-            plt.tight_layout()
-            st.pyplot(fig_heatmap)
-        else:
-            st.info("히트맵 생성을 위한 집계 데이터가 부족합니다 (구간화 후 데이터 없음).")
-    except ValueError as ve:
-        st.warning(f"히트맵 구간화 중 오류 발생: {ve}. 데이터 분포를 확인하거나 bin 수를 조정해주세요.")
-    except Exception as ex:
-        st.error(f"히트맵 생성 중 예외 발생: {ex}")
-
+            plt.tight_layout(); st.pyplot(fig_heatmap)
+        else: st.info("히트맵 생성을 위한 집계 데이터가 부족합니다 (구간화 후 데이터 없음).")
+    except ValueError as ve: st.warning(f"히트맵 구간화 중 오류 발생: {ve}. 데이터 분포를 확인하거나 bin 수를 조정해주세요.")
+    except Exception as ex: st.error(f"히트맵 생성 중 예외 발생: {ex}")
 
 # --- Streamlit 페이지 레이아웃 ---
 def run_housing_safety_page():
@@ -367,38 +328,34 @@ def run_housing_safety_page():
         st.error("필수 데이터 파일을 로드하지 못했습니다. 'data' 폴더 내용을 확인해주세요."); return
 
     df_rescue_processed = preprocess_rescue_data_cached(df_rescue_raw)
-    df_elderly_processed_h = preprocess_elderly_data_for_housing_cached(df_elderly_raw_h) # '고령인구비율' 포함
-    df_housing_processed_h = preprocess_housing_data_cached(df_housing_raw_h) # '노후주택비율' 포함
+    df_elderly_processed_h = preprocess_elderly_data_for_housing_cached(df_elderly_raw_h)
+    df_housing_processed_h = preprocess_housing_data_cached(df_housing_raw_h)
 
-    if df_rescue_processed.empty:
-        st.error("구조활동 데이터 처리 중 오류가 발생했거나 데이터가 없습니다."); return
-    if df_elderly_processed_h.empty:
-        st.error("고령자 현황 데이터 처리 중 오류가 발생했거나 데이터가 없습니다."); return
-    if df_housing_processed_h.empty:
-        st.error("노후 주택 현황 데이터 처리 중 오류가 발생했거나 데이터가 없습니다."); return
+    if df_rescue_processed.empty: st.error("구조활동 데이터 처리 실패."); return
+    if df_elderly_processed_h.empty: st.error("고령자 현황 데이터 처리 실패."); return
+    if df_housing_processed_h.empty: st.error("노후 주택 현황 데이터 처리 실패."); return
 
-
-    # 1. 소제목 제거 (st.write 주석 처리 또는 삭제)
+    # 1. 소제목 제거
     # st.write("### 주거 안전사고 현황 (2023년 데이터 기준)") 
 
     tab_titles_ordered = ["구별 사고 건수", "구별 사고 원인", "서울시 전체 사고 원인", "시간대별 사고", "상관관계 분석 (비율)", "사고와의 복합 관계 (비율)"]
     tabs = st.tabs(tab_titles_ordered)
 
-    with tabs[0]: # 구별 사고 건수
+    with tabs[0]: 
         st.subheader("구별 총 사고 발생 건수")
         plot_gu_incident_counts(df_rescue_processed)
 
-    with tabs[1]: # 구별 사고 원인
+    with tabs[1]: 
         st.subheader("구별 사고원인별 발생 건수")
         top_n_causes_stacked = st.slider("표시할 상위 사고원인 개수:", 3, 15, 7, key="stacked_bar_top_n_slider_housing_main")
         plot_stacked_bar_incident_causes_by_gu(df_rescue_processed, top_n_causes=top_n_causes_stacked)
 
-    with tabs[2]: # 서울시 전체 사고 원인
+    with tabs[2]: 
         st.subheader("서울시 전체 주요 사고원인 비율")
         top_n_causes_pie = st.slider("표시할 상위 사고원인 개수:", 3, 10, 7, key="pie_chart_top_n_slider_housing_main")
         plot_pie_major_incident_causes(df_rescue_processed, top_n=top_n_causes_pie)
 
-    with tabs[3]: # 시간대별 사고
+    with tabs[3]: 
         st.subheader("시간대별 사고 발생 추이")
         if '신고시각' in df_rescue_processed.columns:
             df_rescue_time_analysis = df_rescue_processed.copy()
@@ -409,21 +366,26 @@ def run_housing_safety_page():
                 df_rescue_time_analysis['신고시간(시)'] = df_rescue_time_analysis['신고시간_dt'].dt.hour
                 hourly_incidents_counts = df_rescue_time_analysis.dropna(subset=['신고시간(시)'])
                 hourly_incidents_counts = hourly_incidents_counts[pd.to_numeric(hourly_incidents_counts['신고시간(시)'], errors='coerce').notnull()]
-                hourly_incidents_counts['신고시간(시)'] = hourly_incidents_counts['신고시간(시)'].astype(int)
-                hourly_incidents_counts = hourly_incidents_counts['신고시간(시)'].value_counts().sort_index()
-                if not hourly_incidents_counts.empty:
-                    fig_time, ax_time = plt.subplots(figsize=(12, 6))
-                    sns.lineplot(x=hourly_incidents_counts.index, y=hourly_incidents_counts.values, marker='o', color='indigo', ax=ax_time)
-                    ax_time.set_title('시간대별 사고 발생 추이', fontsize=15); ax_time.set_xlabel('신고 시간 (0시 ~ 23시)', fontsize=12); ax_time.set_ylabel('사고 건수', fontsize=12)
-                    ax_time.set_xticks(ticks=range(0, 24)); ax_time.grid(True, linestyle='--', alpha=0.7)
-                    ax_time.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')); plt.tight_layout(); st.pyplot(fig_time)
-                else: st.info("시간대별 사고 발생 추이 분석을 위한 데이터가 부족합니다 (시간 변환 또는 집계 실패).")
+                if not hourly_incidents_counts.empty: # astype 전에 empty 체크
+                    hourly_incidents_counts['신고시간(시)'] = hourly_incidents_counts['신고시간(시)'].astype(int)
+                    hourly_incidents_counts = hourly_incidents_counts['신고시간(시)'].value_counts().sort_index()
+                    if not hourly_incidents_counts.empty:
+                        fig_time, ax_time = plt.subplots(figsize=(12, 6))
+                        sns.lineplot(x=hourly_incidents_counts.index, y=hourly_incidents_counts.values, marker='o', color='indigo', ax=ax_time)
+                        ax_time.set_title('시간대별 사고 발생 추이', fontsize=15); ax_time.set_xlabel('신고 시간 (0시 ~ 23시)', fontsize=12); ax_time.set_ylabel('사고 건수', fontsize=12)
+                        ax_time.set_xticks(ticks=range(0, 24)); ax_time.grid(True, linestyle='--', alpha=0.7)
+                        ax_time.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')); plt.tight_layout(); st.pyplot(fig_time)
+                    else: st.info("시간대별 사고 발생 추이 분석을 위한 데이터가 부족합니다 (집계 후 데이터 없음).")
+                else: st.info("시간대별 사고 발생 추이 분석을 위한 데이터가 부족합니다 (시간 변환 또는 유효 데이터 부족).")
             else: st.info("구조활동 데이터의 '신고시각'을 유효한 시간 형식으로 변환하는데 실패했습니다.")
         else: st.info("구조활동 데이터에 '신고시각' 컬럼이 없어 시간대별 분석을 수행할 수 없습니다.")
 
-    with tabs[4]: # 상관관계 분석 (비율 기반)
-        st.subheader("노인 인구 비율 및 노후 주택 비율과 특정 사고 건수 간 상관관계 (비율 기반)")
-        if '사고원인' in df_rescue_processed.columns and '고령인구비율' in df_elderly_processed_h.columns and '노후주택비율' in df_housing_processed_h.columns:
+    with tabs[4]: 
+        st.subheader("노인 인구 비율 및 노후 주택 비율과 특정 사고 건수 간 상관관계")
+        if '사고원인' in df_rescue_processed.columns and \
+           '고령인구비율' in df_elderly_processed_h.columns and \
+           '노후주택비율' in df_housing_processed_h.columns:
+            
             unique_causes_list_h_corr_ratio = sorted(df_rescue_processed['사고원인'].unique())
             default_idx_corr_ratio = unique_causes_list_h_corr_ratio.index('화재') if '화재' in unique_causes_list_h_corr_ratio else 0
             selected_cause_corr_ratio = st.selectbox("상관관계 분석 사고 원인 (비율):", unique_causes_list_h_corr_ratio, index=default_idx_corr_ratio, key="corr_ratio_cause_select_housing")
@@ -432,7 +394,6 @@ def run_housing_safety_page():
                 cause_incidents_df_ratio = df_rescue_processed[df_rescue_processed['사고원인'] == selected_cause_corr_ratio]['발생장소_구'].value_counts().reset_index()
                 cause_incidents_df_ratio.columns = ['발생장소_구', f'{selected_cause_corr_ratio}건수']
 
-                # 고령인구비율과 병합
                 merged_df_corr_elderly_ratio = pd.merge(cause_incidents_df_ratio, df_elderly_processed_h[['발생장소_구', '고령인구비율']], on='발생장소_구', how='inner')
                 if not merged_df_corr_elderly_ratio.empty:
                     plot_correlation_scatter_ratio(merged_df_corr_elderly_ratio, '고령인구비율', f'{selected_cause_corr_ratio}건수', 
@@ -440,7 +401,6 @@ def run_housing_safety_page():
                 else: st.info("고령 인구 비율 데이터와 사고 건수 병합 결과 데이터가 없습니다.")
                 st.divider()
                 
-                # 노후주택비율과 병합
                 merged_df_corr_housing_ratio = pd.merge(cause_incidents_df_ratio, df_housing_processed_h[['발생장소_구', '노후주택비율']], on='발생장소_구', how='inner')
                 if not merged_df_corr_housing_ratio.empty:
                     plot_correlation_scatter_ratio(merged_df_corr_housing_ratio, '노후주택비율', f'{selected_cause_corr_ratio}건수', 
@@ -453,9 +413,8 @@ def run_housing_safety_page():
             if '노후주택비율' not in df_housing_processed_h.columns: missing_info.append("'노후주택비율' 컬럼")
             st.info(f"비율 기반 상관관계 분석을 수행하기 위한 데이터({', '.join(missing_info)})가 부족합니다.")
 
-
-    with tabs[5]: # 사고와의 상관관계 분석 (비율 기반 버블 차트 및 히트맵)
-        st.subheader("노후 주택 비율, 고령 인구 비율과 특정 사고 건수의 복합적 관계 (비율 기반)")
+    with tabs[5]: 
+        st.subheader("노후 주택 비율, 고령 인구 비율과 특정 사고 건수의 복합적 관계")
         unique_causes_list_h_bubble_ratio = sorted(df_rescue_processed['사고원인'].unique()) if '사고원인' in df_rescue_processed.columns else ['화재']
         default_idx_bubble_ratio = unique_causes_list_h_bubble_ratio.index('화재') if '화재' in unique_causes_list_h_bubble_ratio else 0
         cause_for_bubble_ratio = st.selectbox("버블/히트맵 기준 사고 원인 (비율):", unique_causes_list_h_bubble_ratio, index=default_idx_bubble_ratio, key="bubble_ratio_cause_select_housing")
