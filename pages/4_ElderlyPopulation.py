@@ -153,7 +153,6 @@ def process_elderly_data_notebook(filepath, years_list): # 고령자현황 노�
     return final_df
 
 # --- 시각화 함수 ---
-# (기존 시각화 함수들은 그대로 유지)
 def plot_seoul_total_dokgo_trend(df_seoul_total, df_seoul_male, df_seoul_female, year_data_cols):
     if df_seoul_male.empty or df_seoul_female.empty or not year_data_cols:
         st.info("서울시 전체 독거노인(성별) 추이 데이터를 그릴 수 없습니다."); return
@@ -234,17 +233,16 @@ def create_dokgo_map_yearly(df_gu_dokgo, selected_year, geo_data):
             center_point = geom.representative_point() if isinstance(geom, Polygon) else (max(geom.geoms, key=lambda p: p.area).representative_point() if isinstance(geom, MultiPolygon) else None)
             if not center_point: continue
             center_lat, center_lon = center_point.y, center_point.x
-            tooltip_text = f"<div style='text-align: left; font-family: sans-serif;'><b>{gu_name_geojson}</b><br>"
-            val_text = f"{selected_year}: {choropleth_data_series[gu_name_geojson]:,.0f}명<br>" if gu_name_geojson in choropleth_data_series.index else "데이터 없음<br>"
-            tooltip_text += val_text + "</div>"
+            
+            # Marker에 연결된 툴팁을 제거합니다.
+            # 구 이름 DivIcon은 그대로 유지됩니다.
             folium.Marker(
                 location=[center_lat, center_lon],
                 icon=folium.DivIcon(
                     html=f'<div style="font-size: 9pt; font-weight: bold; color: black; background-color: transparent; white-space: nowrap;">{gu_name_geojson}</div>'
-                ), 
-                tooltip=folium.Tooltip(tooltip_text, style=("background-color: white; color: #333; font-size: 12px; padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.15);"))
+                )
             ).add_to(m)
-    except Exception as e: st.warning(f"지도 툴팁 생성 중 오류: {e}")
+    except Exception as e: st.warning(f"지도 라벨 생성 중 오류: {e}")
     return m
 
 def plot_seoul_population_trends(seoul_total_goryeong_data, goryeong_years_str_list):
@@ -442,13 +440,13 @@ def run_elderly_population_page():
             max_value=available_years_int[-1],
             step=1,
             value=st.session_state.selected_year_elderly, # 현재 session_state 값으로 슬라이더 초기화
-            key="elderly_year_slider_main_tab3" # 새로운 키 또는 기존 키 사용 (여기서는 새 키 권장)
+            key="elderly_year_slider_main_tab3" 
         )
 
         # 슬라이더 값이 변경되면 session_state를 업데이트하고 페이지를 rerun함
         if st.session_state.selected_year_elderly != new_selected_year_from_slider:
             st.session_state.selected_year_elderly = new_selected_year_from_slider
-            st.rerun() # 페이지를 다시 실행하여 모든 탭에 변경된 연도 적용
+            st.rerun() 
 
         sub_tab_gu1, sub_tab_gu2, sub_tab_gu3, sub_tab_gu4, sub_tab_gu5 = st.tabs([
             "고령화율", "독거노인 수", "노인 중 독거노인 비율", "전체 대비 노인 비율", "독거노인 지도"
