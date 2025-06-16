@@ -332,7 +332,7 @@ def run_housing_safety_page():
     if df_elderly_processed_h.empty: st.error("고령자 현황 데이터 처리 실패."); return
     if df_housing_processed_h.empty: st.error("노후 주택 현황 데이터 처리 실패."); return
 
-    tab_titles_ordered = ["구별 사고 건수", "구별 사고 원인", "서울시 전체 사고 원인", "시간대별 사고", "상관관계 분석 (비율)", "사고와의 복합 관계 (비율)"]
+    tab_titles_ordered = ["구별 사고 건수", "구별 사고 원인", "서울시 전체 사고 원인", "시간대별 사고", "상관관계 분석", "통합 상관관계 분석"]
     tabs = st.tabs(tab_titles_ordered)
 
     with tabs[0]: 
