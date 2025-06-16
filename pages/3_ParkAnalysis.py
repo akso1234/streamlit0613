@@ -251,7 +251,7 @@ def create_choropleth_map(df_metric, geo_data, year_str, metric_name, unit, fill
 
 # --- Streamlit 페이지 구성 ---
 def run_park_analysis_page():
-    st.title("🌳 서울시 공원 분석")
+    st.title("서울시 공원 분석")
     set_korean_font()
 
     park_years_int = [2019, 2020, 2021, 2022, 2023]
@@ -289,9 +289,9 @@ def run_park_analysis_page():
     seoul_geo_data_parks = get_geojson_cached_park_page(geojson_url)
 
     tab1, tab2, tab3 = st.tabs([
-        "📊 연도별 자치구 현황",
-        "📈 서울시 전체 현황",
-        "🗺️ 지도 시각화"
+        "연도별 자치구 현황",
+        "서울시 전체 현황",
+        "지도 시각화"
     ])
 
     with tab1:
