@@ -103,23 +103,21 @@ def preprocess_housing_data_cached(df_housing_raw):
     try:
         new_cols_h = []
         for ct_h in df_housing_processed.columns:
-            if isinstance(ct_h, tuple):
+            if isinstance(ct_h, tuple) and len(ct_h) == 3:
                  new_cols_h.append(tuple(str(s).replace('"', '').strip() if isinstance(s, str) else str(s) for s in ct_h))
-            else:
-                 new_cols_h.append(str(ct_h).replace('"', '').strip() if isinstance(ct_h, str) else str(ct_h))
+            elif isinstance(ct_h, tuple) and len(ct_h) < 3:
+                new_cols_h.append(tuple(str(s).replace('"', '').strip() if isinstance(s, str) else str(s) for s in ct_h) + ('',) * (3 - len(ct_h)))
+            else: 
+                 new_cols_h.append((str(ct_h).replace('"', '').strip() if isinstance(ct_h, str) else str(ct_h), '', ''))
 
-        if all(isinstance(col, tuple) for col in new_cols_h):
-            if len(new_cols_h) == len(df_housing_processed.columns):
-                df_housing_processed.columns = pd.MultiIndex.from_tuples(new_cols_h)
-            else:
-                st.error("노후주택: MultiIndex 컬럼명 생성 중 길이 불일치.")
-                return pd.DataFrame()
+        if len(new_cols_h) == len(df_housing_processed.columns):
+            df_housing_processed.columns = pd.MultiIndex.from_tuples(new_cols_h)
         else:
-             df_housing_processed.columns = new_cols_h
+            st.error("노후주택: MultiIndex 컬럼명 생성 중 길이 불일치.")
+            return pd.DataFrame()
         
         target_old_housing_col_tuple = None
         col_20_to_30_total_tuple = None     
-        total_housing_col_explicit = None 
         year_prefix_housing = '2023'        
 
         if isinstance(df_housing_processed.columns, pd.MultiIndex) and len(df_housing_processed.columns.levels) >= 3:
@@ -131,14 +129,12 @@ def preprocess_housing_data_cached(df_housing_raw):
                             target_old_housing_col_tuple = col_tuple_h
                         elif "20년~30년미만" in c1_h and c2_h == "계": 
                             col_20_to_30_total_tuple = col_tuple_h
-                        elif c1_h == "계" and c2_h == "계": 
-                            total_housing_col_explicit = col_tuple_h
             
             if target_old_housing_col_tuple is None:
                  st.error("노후 주택 데이터: 2023년 '30년 이상 계' 컬럼을 찾지 못했습니다.")
                  return pd.DataFrame()
-            if total_housing_col_explicit is None and col_20_to_30_total_tuple is None :
-                 st.error("노후 주택 데이터: 전체 주택 수를 파악할 수 있는 컬럼('2023,계,계' 또는 '2023,20년~30년미만,계')을 찾지 못했습니다.")
+            if col_20_to_30_total_tuple is None : # 이 컬럼도 계산에 필요하므로 확인
+                 st.error("노후 주택 데이터: 2023년 '20년~30년미만 계' 컬럼을 찾지 못했습니다.")
                  return pd.DataFrame()
         else:
             st.warning("노후주택: 예상된 3레벨 MultiIndex가 아니거나, 컬럼 구조가 다릅니다.")
@@ -156,30 +152,17 @@ def preprocess_housing_data_cached(df_housing_raw):
         
         data_to_extract = {
             '발생장소_구': df_filtered_housing[gu_name_column_actual_tuple].astype(str).str.strip(),
-            '노후주택수': pd.to_numeric(df_filtered_housing[target_old_housing_col_tuple].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
+            '노후주택수': pd.to_numeric(df_filtered_housing[target_old_housing_col_tuple].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int),
+            '주택수_20년_30년미만': pd.to_numeric(df_filtered_housing[col_20_to_30_total_tuple].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
         }
-
-        if total_housing_col_explicit and total_housing_col_explicit in df_filtered_housing.columns:
-            data_to_extract['전체주택수'] = pd.to_numeric(df_filtered_housing[total_housing_col_explicit].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
-        elif col_20_to_30_total_tuple and target_old_housing_col_tuple:
-            val_20_30 = pd.to_numeric(df_filtered_housing[col_20_to_30_total_tuple].astype(str).str.replace(',','', regex=False), errors='coerce').fillna(0).astype(int)
-            data_to_extract['전체주택수'] = val_20_30 + data_to_extract['노후주택수']
-            st.warning("노후주택: 명시적인 '전체 주택 수(계,계)' 컬럼을 찾지 못해, '20년~30년미만 계' + '30년이상 계'로 '전체주택수'를 근사합니다. 이는 실제 전체 주택수와 다를 수 있습니다.")
-        else:
-            st.error("노후주택: 전체 주택 수를 확정할 수 없어 비율 계산이 불가능합니다.")
-            data_to_extract['전체주택수'] = 0
-
-
         df_final_housing = pd.DataFrame(data_to_extract)
+
+        df_final_housing['전체주택수'] = df_final_housing['주택수_20년_30년미만'] + df_final_housing['노후주택수']
             
-        if '전체주택수' in df_final_housing.columns:
-            df_final_housing['노후주택비율'] = np.where(
-                df_final_housing['전체주택수'] > 0,
-                (df_final_housing['노후주택수'] / df_final_housing['전체주택수']), 0
-            ).astype(float)
-        else: 
-            st.error("노후주택: '전체주택수' 컬럼이 생성되지 않아 비율 계산 불가.")
-            df_final_housing['노후주택비율'] = 0.0
+        df_final_housing['노후주택비율'] = np.where(
+            df_final_housing['전체주택수'] > 0,
+            (df_final_housing['노후주택수'] / df_final_housing['전체주택수']), 0
+        ).astype(float)
         
         cols_to_return = ['발생장소_구', '노후주택수', '전체주택수', '노후주택비율']
         if not all(col in df_final_housing.columns for col in cols_to_return):
@@ -187,7 +170,7 @@ def preprocess_housing_data_cached(df_housing_raw):
             return pd.DataFrame()
 
         df_final_housing = df_final_housing[cols_to_return]
-        df_final_housing.dropna(subset=['발생장소_구', '노후주택수', '전체주택수', '노후주택비율'], inplace=True)
+        df_final_housing.dropna(subset=cols_to_return, inplace=True)
         return df_final_housing
 
     except KeyError as ke: 
@@ -196,6 +179,7 @@ def preprocess_housing_data_cached(df_housing_raw):
     except Exception as e: 
         st.error(f"노후 주택 데이터 전처리 중 예외: {e}")
         return pd.DataFrame()
+
 
 # --- 시각화 함수 ---
 def plot_gu_incident_counts(df_rescue):
@@ -291,16 +275,14 @@ def plot_heatmap_housing_elderly_incident_ratio(df_merged_ratio, accident_col_na
         return
     num_bins = 5
     try:
-        # pd.cut 사용 시 라벨이 중복될 수 있으므로, retbins=True로 실제 경계값을 얻어 라벨 생성하거나, 
-        # 혹은 더 간단하게 정수형 인덱스를 라벨로 사용 후 tick formatter로 조정
-        df_merged_ratio_copy = df_merged_ratio.copy() # 원본 DataFrame 변경 방지
+        df_merged_ratio_copy = df_merged_ratio.copy() 
         df_merged_ratio_copy['노후주택비율_bin_label'] = pd.cut(
             df_merged_ratio_copy['노후주택비율'], bins=num_bins, precision=2, include_lowest=True,
-            labels=[f'{i*100/num_bins:.0f}-{(i+1)*100/num_bins:.0f}%' for i in range(num_bins)] # 라벨 형식 변경
+            labels=[f'{i*100/num_bins:.0f}-{(i+1)*100/num_bins:.0f}%' for i in range(num_bins)]
         )
         df_merged_ratio_copy['고령인구비율_bin_label'] = pd.cut(
             df_merged_ratio_copy['고령인구비율'], bins=num_bins, precision=2, include_lowest=True,
-            labels=[f'{i*100/num_bins:.0f}-{(i+1)*100/num_bins:.0f}%' for i in range(num_bins)] # 라벨 형식 변경
+            labels=[f'{i*100/num_bins:.0f}-{(i+1)*100/num_bins:.0f}%' for i in range(num_bins)]
         )
 
         heatmap_data_ratio = df_merged_ratio_copy.pivot_table(
@@ -308,7 +290,7 @@ def plot_heatmap_housing_elderly_incident_ratio(df_merged_ratio, accident_col_na
             index='고령인구비율_bin_label',
             columns='노후주택비율_bin_label',
             aggfunc='mean',
-            observed=True # 이 옵션은 pandas 최신 버전에서만 유효할 수 있음, 오류 시 제거
+            observed=True 
         ).sort_index(ascending=False)
 
         if not heatmap_data_ratio.empty:
