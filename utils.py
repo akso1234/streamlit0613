@@ -1,4 +1,4 @@
-# --- START OF utils.py (디버깅 로그 및 사이드바 출력 제거) ---
+# --- START OF utils.py ---
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -57,9 +57,6 @@ def set_korean_font():
              plt.rcParams['font.family'] = 'sans-serif'
              font_to_set = 'sans-serif'
     
-    # 최종적으로 설정된 폰트가 한글 지원 폰트인지 확인 후,
-    # 문제가 있을 경우에만 Streamlit 사이드바에 경고 메시지를 한 번만 표시합니다.
-    # (성공 시에는 아무 메시지도 표시하지 않습니다.)
     final_font_family_list_check = plt.rcParams.get('font.family', ['Unknown'])
     final_font_family_check = final_font_family_list_check[0] if final_font_family_list_check else 'Unknown'
     
@@ -68,20 +65,17 @@ def set_korean_font():
     is_korean_font_actually_set = any(expected_name in final_font_family_check.lower() for expected_name in expected_korean_font_names_lower_check)
 
     if not is_korean_font_actually_set:
-        # st.sidebar.warning() 호출은 set_page_config() 이후에 이루어져야 합니다.
-        # 이 함수는 각 페이지의 set_page_config() 이후에 호출되므로 안전합니다.
-        if st.runtime.exists(): # Streamlit 앱으로 실행 중일 때만 UI 요소 사용
+        if st.runtime.exists():
             st.sidebar.warning(
                  f"한글 폰트 자동 설정에 실패하여 기본 폰트('{final_font_family_check}')가 사용될 수 있습니다. "
                  "그래프의 한글이 깨질 경우, GitHub 리포지토리에 'NanumGothic.ttf'와 같은 한글 폰트 파일을 올바르게 추가했는지 확인해주세요."
             )
-
     plt.rcParams['axes.unicode_minus'] = False
 
-# --- load_csv, load_geojson, load_csv_from_upload 함수는 이전과 동일하게 유지 ---
 @st.cache_data
 def load_csv(
     file_path, 
+    encoding=None, # encoding 인자 추가
     encoding_options=['utf-8-sig', 'utf-8', 'cp949', 'euc-kr'], 
     header_config=None, 
     skiprows_config=None, 
@@ -92,12 +86,19 @@ def load_csv(
     full_path = file_path
     
     if not os.path.exists(full_path):
-        st.error(f"데이터 파일을 찾을 수 없습니다: {full_path}")
+        # st.error(f"데이터 파일을 찾을 수 없습니다: {full_path}") # 이전 코드에서는 st.error 사용
+        print(f"데이터 파일을 찾을 수 없습니다: {full_path}") # Streamlit UI 요소 대신 print 사용 (st.cache_data 내부 디버깅용)
         return None
 
-    for encoding in encoding_options:
+    encodings_to_try = []
+    if encoding: # 명시적으로 encoding이 제공된 경우
+        encodings_to_try.append(encoding)
+    encodings_to_try.extend(enc for enc in encoding_options if enc != encoding) # 나머지 옵션 추가 (중복 방지)
+
+
+    for enc in encodings_to_try:
         try:
-            read_options = {'encoding': encoding, 'sep': sep_config}
+            read_options = {'encoding': enc, 'sep': sep_config}
             if header_config is not None:
                 read_options['header'] = header_config
             if skiprows_config is not None:
@@ -107,15 +108,20 @@ def load_csv(
             if na_values_config is not None:
                 read_options['na_values'] = na_values_config
             
+            # print(f"Attempting to load {full_path} with encoding: {enc}, options: {read_options}") # 디버깅 로그
             df = pd.read_csv(full_path, **read_options)
+            # print(f"Successfully loaded {full_path} with encoding: {enc}") # 디버깅 로그
             return df
         except UnicodeDecodeError:
+            # print(f"UnicodeDecodeError with encoding: {enc} for file: {full_path}") # 디버깅 로그
             continue
         except Exception as e:
-            st.warning(f"'{os.path.basename(full_path)}' 파일 로드 중 오류 발생 (인코딩: {encoding}): {e}")
-            return None
+            # st.warning(f"'{os.path.basename(full_path)}' 파일 로드 중 오류 발생 (인코딩: {enc}): {e}")
+            print(f"'{os.path.basename(full_path)}' 파일 로드 중 오류 발생 (인코딩: {enc}): {e}")
+            return None # 다른 심각한 오류 발생 시 None 반환
             
-    st.error(f"'{os.path.basename(full_path)}' 파일 로드 실패. 지원되는 인코딩을 찾을 수 없습니다.")
+    # st.error(f"'{os.path.basename(full_path)}' 파일 로드 실패. 지원되는 인코딩을 찾을 수 없습니다.")
+    print(f"'{os.path.basename(full_path)}' 파일 로드 실패. 지원되는 인코딩을 찾을 수 없습니다.")
     return None
 
 @st.cache_data
@@ -148,6 +154,7 @@ def load_geojson(path_or_url):
 @st.cache_data
 def load_csv_from_upload(
     _uploaded_file_object,
+    encoding=None, # encoding 인자 추가
     encoding_options=['utf-8-sig', 'utf-8', 'cp949', 'euc-kr'], 
     header_config=None, 
     skiprows_config=None, 
@@ -159,11 +166,16 @@ def load_csv_from_upload(
         
     uploaded_file_object = _uploaded_file_object 
     
-    for encoding in encoding_options:
+    encodings_to_try = []
+    if encoding:
+        encodings_to_try.append(encoding)
+    encodings_to_try.extend(enc for enc in encoding_options if enc != encoding)
+
+    for enc in encodings_to_try:
         try:
             bytes_data = uploaded_file_object.getvalue()
             
-            read_options = {'encoding': encoding, 'sep': sep_config}
+            read_options = {'encoding': enc, 'sep': sep_config}
             if header_config is not None: read_options['header'] = header_config
             if skiprows_config is not None: read_options['skiprows'] = skiprows_config
             if na_values_config is not None: read_options['na_values'] = na_values_config
@@ -173,7 +185,7 @@ def load_csv_from_upload(
         except UnicodeDecodeError:
             continue
         except Exception as e:
-            st.warning(f"업로드된 파일 '{uploaded_file_object.name}' 로드 중 오류 (인코딩: {encoding}): {e}")
+            st.warning(f"업로드된 파일 '{uploaded_file_object.name}' 로드 중 오류 (인코딩: {enc}): {e}")
             return None
             
     st.error(f"업로드된 파일 '{uploaded_file_object.name}' 로드 실패. 모든 인코딩 시도 실패.")
