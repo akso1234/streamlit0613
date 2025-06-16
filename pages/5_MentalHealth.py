@@ -78,7 +78,7 @@ def analyze_elderly_mental_condition_cached(df_seoul_condition, elderly_groups):
         patients_subgroup_gender_yearly.rename(columns={'값': '환자수'}, inplace=True)
     return total_patients_yearly, patients_gender_yearly, patients_subgroup_gender_yearly
 
-# --- 독거노인 데이터 처리 함수 수정 (디버깅 코드 주석 처리 또는 제거) ---
+# --- 독거노인 데이터 처리 함수 수정 ---
 @st.cache_data
 def preprocess_lonely_elderly_data_revised_cached(file_path):
     df_raw = load_csv(file_path, header_config=[0,1,2,3], encoding='utf-8-sig')
@@ -86,10 +86,6 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
     if df_raw is None or df_raw.empty:
         st.warning(f"독거노인 파일 '{os.path.basename(file_path)}'을 로드하지 못했거나 비어있습니다.")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
-
-    # 디버깅 프린트문은 주석 처리하거나, 문제가 해결되었다면 제거합니다.
-    # print("DEBUG (Dokgo): df_raw.columns (Original MultiIndex from CSV for Dokgo File)")
-    # ... (이하 다른 print문들도 동일)
 
     try:
         sido_col_actual_tuple = df_raw.columns[0]
@@ -146,7 +142,6 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
             year_df['연도'] = int(year_str)
             result_data.append(year_df)
         except Exception as e:
-            # print(f"ERROR (Dokgo): Exception for year {year_str} during year_df creation or append: {e}") # 디버깅용
             continue
             
     if not result_data: 
@@ -160,7 +155,7 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
     df_final_dokgo['독거노인수'] = pd.to_numeric(df_final_dokgo['독거노인수'], errors='coerce').fillna(0).astype(int)
-    df_final_dokgo['성별'] = '전체'
+    df_final_dokgo['성별'] = '전체' # 독거노인 파일에 성별 구분이 없으므로 '전체'로 통일
     
     return df_final_dokgo
 
@@ -323,20 +318,22 @@ def plot_pie_chart_by_year(all_conditions_summary_df, selected_year_int):
     ax.set_title(f'서울시 {selected_year_int}년 전체 노인 정신질환별 환자 수 비율', fontsize=16)
     ax.axis('equal'); plt.tight_layout(); st.pyplot(fig)
 
-# --- 새로운 시각화 함수 (Colab Cell 19, 22 기반) ---
-def plot_sigungu_lonely_vs_mental_gender_ratio(df_merged, selected_condition, selected_year):
+# --- 새로운 시각화 함수 ---
+# 함수 이름 변경: plot_sigungu_lonely_gender_vs_mental_gender_ratio -> plot_sigungu_lonely_total_vs_mental_total_ratio
+def plot_sigungu_lonely_total_vs_mental_total_ratio(df_merged, selected_condition, selected_year):
     if df_merged.empty:
-        st.info(f"{selected_year}년 {selected_condition}에 대한 구별 독거노인 성별 대비 정신질환자 비율 데이터가 없습니다.")
-        return
-
-    if '성별' in df_merged.columns and len(df_merged['성별'].unique()) == 1 and df_merged['성별'].unique()[0] == '전체':
-        st.info(f"현재 사용 중인 독거노인 데이터에는 성별 구분이 없어, '{selected_condition}'에 대한 독거노인 성별 대비 환자 비율 그래프를 그릴 수 없습니다. (독거노인 성별이 '전체'로만 표시됨)")
+        st.info(f"{selected_year}년 {selected_condition}에 대한 구별 독거노인 총 수 대비 정신질환자 총 수 비율 데이터가 없습니다.")
         return
 
     df_plot = df_merged[
         (df_merged['질환명'] == selected_condition) &
         (df_merged['연도'] == selected_year)
     ].copy()
+
+    # '성별' 컬럼이 '전체'만 있는지 확인 (이 함수는 이제 성별 구분을 하지 않음)
+    # 이 확인은 df_merged 생성 시 '성별'이 '전체'로 통일되었다면 불필요할 수 있음
+    if not ('성별' in df_plot.columns and len(df_plot['성별'].unique()) == 1 and df_plot['성별'].unique()[0] == '전체'):
+         st.warning("이 그래프는 독거노인 및 정신질환자 총 수 대비 비율을 표시합니다. 데이터 준비 과정에서 성별이 '전체'로 통일되지 않았을 수 있습니다.")
 
     if df_plot.empty or ('독거노인_대비_질환자_비율(%)' in df_plot.columns and df_plot['독거노인_대비_질환자_비율(%)'].sum() == 0):
         st.info(f"{selected_year}년 {selected_condition}에 대한 유의미한 구별 비율 데이터가 없습니다.")
@@ -348,21 +345,22 @@ def plot_sigungu_lonely_vs_mental_gender_ratio(df_merged, selected_condition, se
     order_sigungu = sorted(df_plot['시군구'].unique())
 
     fig, ax = plt.subplots(figsize=(20, 10))
+    # hue='성별' 제거, palette도 단색 또는 기본값으로 변경
     sns.barplot(
-        data=df_plot, x='시군구', y='독거노인_대비_질환자_비율(%)', hue='성별',
-        order=order_sigungu, palette={'남': 'cornflowerblue', '여': 'salmon', '전체': 'grey'}, ax=ax
+        data=df_plot, x='시군구', y='독거노인_대비_질환자_비율(%)',
+        order=order_sigungu, color='mediumpurple', ax=ax # 단색으로 변경 (예시 색상)
     )
-    ax.set_title(f'서울시 구별 <{selected_condition}> 독거노인 성별 대비 환자 비율 ({selected_year}년)', fontsize=18)
+    ax.set_title(f'서울시 구별 <{selected_condition}> 독거노인 총 수 대비 환자 총 수 비율 ({selected_year}년)', fontsize=18)
     ax.set_xlabel('시군구', fontsize=14); ax.set_ylabel(f'{selected_condition} 환자 비율 (%)', fontsize=14)
     plt.setp(ax.get_xticklabels(), rotation=90, ha='center', fontsize=9)
     ax.tick_params(axis='y', labelsize=10)
-    ax.legend(title='성별', fontsize=12, title_fontsize=13)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     for p in ax.patches:
         if p.get_height() > 0.001:
             ax.annotate(f"{p.get_height():.2f}%", (p.get_x() + p.get_width() / 2., p.get_height()),
                         ha='center', va='bottom', xytext=(0, 5), textcoords='offset points', fontsize=8)
     plt.tight_layout(); st.pyplot(fig)
+
 
 def plot_sigungu_total_elderly_vs_mental_ratio(df_merged, selected_condition, selected_year):
     if df_merged.empty:
@@ -508,19 +506,23 @@ def run_mental_health_page():
         
         df_sigungu_lonely_vs_mental_merged = pd.DataFrame()
         if not df_sigungu_mental_patients_gender_all_conditions_st.empty and not df_sigungu_lonely_elderly_gender_st.empty:
+            # 정신질환자 데이터는 성별('남','여')로 구분되어 있으나, 독거노인 데이터는 '성별'='전체'임
+            # 따라서, 정신질환자 데이터를 '성별'='전체'로 합산하여 merge
             temp_mental_total = df_sigungu_mental_patients_gender_all_conditions_st.groupby(
                 ['연도', '시군구', '질환명']
             )['정신질환_환자수'].sum().reset_index()
-            temp_mental_total['성별'] = '전체'
+            temp_mental_total['성별'] = '전체' # merge를 위한 '성별' 컬럼 추가
 
             df_sigungu_lonely_vs_mental_merged = pd.merge(
-                temp_mental_total, 
-                df_sigungu_lonely_elderly_gender_st, 
-                on=['연도', '시군구', '성별'], how='left'
+                temp_mental_total, # 여기서는 성별 합산된 정신질환자 수를 사용
+                df_sigungu_lonely_elderly_gender_st, # 여기서는 '성별'='전체'인 독거노인 수를 사용
+                on=['연도', '시군구', '성별'], how='left' 
             )
             if not df_sigungu_lonely_vs_mental_merged.empty:
                 df_sigungu_lonely_vs_mental_merged['독거노인수'] = pd.to_numeric(df_sigungu_lonely_vs_mental_merged['독거노인수'], errors='coerce').fillna(0)
-                df_sigungu_lonely_vs_mental_merged['정신질환_환자수'] = pd.to_numeric(df_sigungu_lonely_vs_mental_merged['정신질환_환자수'], errors='coerce').fillna(0)
+                # '정신질환_환자수'는 이미 temp_mental_total에서 합산된 값이므로 그대로 사용
+                df_sigungu_lonely_vs_mental_merged['정신질환_환자수'] = pd.to_numeric(df_sigungu_lonely_vs_mental_merged['정신질환_환자수'], errors='coerce').fillna(0) 
+                
                 if '독거노인수' in df_sigungu_lonely_vs_mental_merged.columns and df_sigungu_lonely_vs_mental_merged['독거노인수'].sum() > 0 :
                     df_sigungu_lonely_vs_mental_merged['독거노인_대비_질환자_비율(%)'] = np.where(
                         df_sigungu_lonely_vs_mental_merged['독거노인수'] > 0,
@@ -547,19 +549,16 @@ def run_mental_health_page():
                 )
 
         sub_tab_sigungu1, sub_tab_sigungu2 = st.tabs([
-            "독거노인 성별 대비 비율", "전체 65세+ 노인 대비 비율"
+            "독거노인 총 수 대비 비율", "전체 65세+ 노인 대비 비율" # 첫 번째 탭 이름 변경
         ])
 
         with sub_tab_sigungu1:
-            st.markdown(f"##### {selected_year_tab3}년 {selected_condition_tab3} - 구별 독거노인 성별 대비 환자 비율")
+            st.markdown(f"##### {selected_year_tab3}년 {selected_condition_tab3} - 구별 독거노인 총 수 대비 환자 총 수 비율") # 제목 변경
             if not df_sigungu_lonely_vs_mental_merged.empty:
-                if '성별' in df_sigungu_lonely_vs_mental_merged.columns and \
-                   not (len(df_sigungu_lonely_vs_mental_merged['성별'].unique()) == 1 and df_sigungu_lonely_vs_mental_merged['성별'].unique()[0] == '전체'):
-                    plot_sigungu_lonely_vs_mental_gender_ratio(df_sigungu_lonely_vs_mental_merged, selected_condition_tab3, selected_year_tab3)
-                else:
-                    st.info(f"현재 사용 중인 독거노인 데이터에는 성별 구분이 없거나 '전체'로만 표시되어, '{selected_condition_tab3}'에 대한 독거노인 성별 대비 환자 비율 그래프를 그릴 수 없습니다.")
+                # 변경된 함수 호출
+                plot_sigungu_lonely_total_vs_mental_total_ratio(df_sigungu_lonely_vs_mental_merged, selected_condition_tab3, selected_year_tab3)
             else:
-                st.info("독거노인 성별 대비 정신질환자 비율을 계산할 데이터가 부족합니다. (독거노인 파일에 성별 정보가 없거나, 데이터 로드/병합 실패)")
+                st.info("독거노인 총 수 대비 정신질환자 총 수 비율을 계산할 데이터가 부족합니다.")
 
         with sub_tab_sigungu2:
             st.markdown(f"##### {selected_year_tab3}년 {selected_condition_tab3} - 구별 전체 65세+ 노인 대비 환자 비율")
