@@ -78,7 +78,7 @@ def analyze_elderly_mental_condition_cached(df_seoul_condition, elderly_groups):
         patients_subgroup_gender_yearly.rename(columns={'값': '환자수'}, inplace=True)
     return total_patients_yearly, patients_gender_yearly, patients_subgroup_gender_yearly
 
-# --- 독거노인 데이터 처리 함수 수정 (디버깅 코드 포함) ---
+# --- 독거노인 데이터 처리 함수 수정 ---
 @st.cache_data
 def preprocess_lonely_elderly_data_revised_cached(file_path):
     df_raw = load_csv(file_path, header_config=[0,1,2,3], encoding='utf-8-sig')
@@ -87,101 +87,66 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
         st.warning(f"독거노인 파일 '{os.path.basename(file_path)}'을 로드하지 못했거나 비어있습니다.")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
-    # ---!!! 중요 디버깅 코드 시작 !!!---
-    print("DEBUG (Dokgo): df_raw.columns (Original MultiIndex from CSV for Dokgo File)")
-    # 모든 컬럼을 출력하면 너무 길 수 있으므로, 일부만 또는 유니크한 레벨 값들을 출력
-    for i in range(4): # 4개의 레벨이 있다고 가정
-        try:
-            print(f"  Level {i} unique values: {df_raw.columns.get_level_values(i).unique().tolist()[:20]}") # 각 레벨별 유니크 값 앞 20개
-        except IndexError:
-            print(f"  Level {i} does not exist or error.")
-    
-    cols_2021_example = [col for col in df_raw.columns if isinstance(col, tuple) and col[0] == '2021']
-    print("\nDEBUG (Dokgo): Example columns for year '2021' in Dokgo file (first 10):")
-    for col in cols_2021_example[:10]:
-         print(col)
-    print("---!!! 중요 디버깅 코드 끝 !!!---")
-
     try:
-        sido_col_name_tuple = df_raw.columns[0]
-        sigungu_col_name_tuple = df_raw.columns[1]
+        sido_col_actual_tuple = df_raw.columns[0]
+        sigungu_col_actual_tuple = df_raw.columns[1]
     except IndexError:
         st.error("독거노인 파일의 컬럼 구조가 예상과 다릅니다 (최소 2개 이상의 컬럼이 필요).")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
-    df_seoul = df_raw[df_raw[sido_col_name_tuple] == '서울특별시'].copy()
-    df_gu_data = df_seoul[df_seoul[sigungu_col_name_tuple].str.endswith('구', na=False)].copy()
+    df_seoul = df_raw[df_raw[sido_col_actual_tuple] == '서울특별시'].copy()
+    df_gu_data = df_seoul[df_seoul[sigungu_col_actual_tuple].astype(str).str.endswith('구', na=False)].copy()
 
     if df_gu_data.empty:
         st.warning("독거노인 데이터에서 구별 데이터를 찾을 수 없습니다.")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
     
-    # ---!!! 중요 디버깅 코드 시작 !!!---
-    print("DEBUG (Dokgo): df_gu_data.columns (first 30 columns after filtering for Seoul and Gu):")
-    for i, col_tuple in enumerate(df_gu_data.columns):
-        if i < 30 : 
-            print(f"  Col {i}: {col_tuple} (Type: {type(col_tuple)})")
-        else:
-            break
-    print("DEBUG (Dokgo): End of df_gu_data.columns print for filtered data")
-    # ---!!! 중요 디버깅 코드 끝 !!!---
-
     result_data = []
-    available_years_in_file = sorted(list(set(str(c[0]).strip() for c in df_gu_data.columns if isinstance(c, tuple) and len(c) > 0 and str(c[0]).strip().isdigit())))
+    unique_years_level0 = df_gu_data.columns.get_level_values(0).unique()
+    available_years_in_file = sorted([yr for yr in unique_years_level0 if str(yr).strip().isdigit()])
     
-    print(f"DEBUG (Dokgo): Available years extracted from df_gu_data columns: {available_years_in_file}")
-
-    for year_str in available_years_in_file:
+    for year_str_from_col in available_years_in_file:
+        year_str = str(year_str_from_col).strip()
         if not (2021 <= int(year_str) <= 2023): 
             continue
         
-        level1_expected = '합계'
-        level2_expected = '소계'
-        level3_expected = '계'
+        level1_expected_clean = '합계'
+        level2_expected_clean = '소계'
+        level3_expected_clean = '계'
 
-        target_col_found = None
-        print(f"DEBUG (Dokgo): Searching for target column for year: {year_str}")
-        print(f"  Expected tuple structure: ({year_str}, '{level1_expected}', '{level2_expected}', '{level3_expected}')")
-
-        for col_tuple_from_df in df_gu_data.columns:
-            if isinstance(col_tuple_from_df, tuple) and len(col_tuple_from_df) == 4:
-                l0, l1, l2, l3 = str(col_tuple_from_df[0]).strip(), str(col_tuple_from_df[1]).strip(), str(col_tuple_from_df[2]).strip(), str(col_tuple_from_df[3]).strip()
-                if l0 == year_str and l1 == level1_expected and l2 == level2_expected and l3 == level3_expected:
-                    target_col_found = col_tuple_from_df
-                    print(f"  SUCCESS: Found target column for {year_str}: {target_col_found}")
-                    break
+        target_col_found_actual_tuple = None
+        for col_tuple in df_gu_data.columns:
+            if isinstance(col_tuple, tuple) and len(col_tuple) == 4:
+                l0, l1, l2, l3 = str(col_tuple[0]).strip(), str(col_tuple[1]).strip(), str(col_tuple[2]).strip(), str(col_tuple[3]).strip()
+                if l0 == year_str and l1 == level1_expected_clean and l2 == level2_expected_clean and l3 == level3_expected_clean:
+                    target_col_found_actual_tuple = col_tuple
+                    break 
         
-        if target_col_found is None:
-            print(f"  WARNING (Dokgo): {year_str}년 ('{level1_expected}', '{level2_expected}', '{level3_expected}') 컬럼을 찾지 못했습니다. Skipping this year.")
+        if target_col_found_actual_tuple is None:
+            # print(f"  WARNING (Dokgo): {year_str}년 ('{level1_expected_clean}', '{level2_expected_clean}', '{level3_expected_clean}') 컬럼을 찾지 못했습니다. Skipping this year.")
             continue
             
         try:
-            cols_to_select = [sigungu_col_name_tuple, target_col_found]
-            if not all(col in df_gu_data.columns for col in cols_to_select):
-                print(f"ERROR (Dokgo): Year {year_str} - Required columns not found in df_gu_data before creating year_data. Selected: {cols_to_select}")
+            cols_to_select_actual = [sigungu_col_actual_tuple, target_col_found_actual_tuple]
+            if not all(col in df_gu_data.columns for col in cols_to_select_actual):
+                # print(f"ERROR (Dokgo): Year {year_str} - Required columns not found in df_gu_data before creating year_data. Selected: {cols_to_select_actual}")
                 continue
 
-            year_data = df_gu_data[cols_to_select].copy()
-            # print(f"DEBUG (Dokgo): year_data columns BEFORE rename for year {year_str}: {year_data.columns.tolist()}")
+            year_data = df_gu_data[cols_to_select_actual].copy()
             
             year_data.rename(columns={
-                sigungu_col_name_tuple: '시군구',
-                target_col_found: '독거노인수'
+                sigungu_col_actual_tuple: '시군구',
+                target_col_found_actual_tuple: '독거노인수'
             }, inplace=True)
-            # print(f"DEBUG (Dokgo): year_data columns AFTER rename for year {year_str}: {year_data.columns.tolist()}")
             
             if '독거노인수' not in year_data.columns:
-                print(f"ERROR (Dokgo): {year_str}년 데이터 rename 후 '독거노인수' 컬럼이 없습니다. 원본 컬럼: {target_col_found}")
+                # print(f"ERROR (Dokgo): {year_str}년 데이터 rename 후 '독거노인수' 컬럼이 없습니다. 원본 컬럼: {target_col_found_actual_tuple}")
                 continue
 
             year_data['연도'] = int(year_str)
             result_data.append(year_data)
-        except KeyError as ke:
-            st.warning(f"{year_str}년 독거노인 데이터 처리 중 KeyError 발생 (컬럼 접근 오류): {ke}. 해당 연도 데이터를 건너뜁니다.")
-            print(f"DEBUG (Dokgo): KeyError details for year {year_str} - df_gu_data columns: {df_gu_data.columns.tolist()[:15]}")
-            continue
         except Exception as e:
-            st.warning(f"{year_str}년 독거노인 데이터 처리 중 예외 발생 (데이터프레임 생성/수정 중): {e}")
+            # st.warning(f"{year_str}년 독거노인 데이터 처리 중 예외 발생: {e}")
             continue
             
     if not result_data: 
@@ -192,7 +157,6 @@ def preprocess_lonely_elderly_data_revised_cached(file_path):
     
     if '독거노인수' not in df_final_dokgo.columns:
         st.error("독거노인 데이터 결합 후 '독거노인수' 컬럼이 생성되지 않았습니다. (Dokgo) 최종 DataFrame 컬럼: " + str(df_final_dokgo.columns.tolist()))
-        print(f"DEBUG (Dokgo): df_final_dokgo columns after concat: {df_final_dokgo.columns.tolist()}")
         return pd.DataFrame(columns=['시군구', '연도', '독거노인수', '성별'])
 
     df_final_dokgo['독거노인수'] = pd.to_numeric(df_final_dokgo['독거노인수'], errors='coerce').fillna(0).astype(int)
@@ -589,12 +553,11 @@ def run_mental_health_page():
         with sub_tab_sigungu1:
             st.markdown(f"##### {selected_year_tab3}년 {selected_condition_tab3} - 구별 독거노인 성별 대비 환자 비율")
             if not df_sigungu_lonely_vs_mental_merged.empty:
-                # 성별 구분이 없는 독거노인 데이터로는 이 그래프가 의미가 없으므로, 메시지를 표시하고 그래프 함수 호출을 조건부로 변경
                 if '성별' in df_sigungu_lonely_vs_mental_merged.columns and \
                    not (len(df_sigungu_lonely_vs_mental_merged['성별'].unique()) == 1 and df_sigungu_lonely_vs_mental_merged['성별'].unique()[0] == '전체'):
                     plot_sigungu_lonely_vs_mental_gender_ratio(df_sigungu_lonely_vs_mental_merged, selected_condition_tab3, selected_year_tab3)
                 else:
-                    st.info(f"현재 사용 중인 독거노인 데이터에는 성별 구분이 없어, '{selected_condition_tab3}'에 대한 독거노인 성별 대비 환자 비율 그래프를 그릴 수 없습니다. (독거노인 성별이 '전체'로만 표시됨)")
+                    st.info(f"현재 사용 중인 독거노인 데이터에는 성별 구분이 없거나 '전체'로만 표시되어, '{selected_condition_tab3}'에 대한 독거노인 성별 대비 환자 비율 그래프를 그릴 수 없습니다.")
             else:
                 st.info("독거노인 성별 대비 정신질환자 비율을 계산할 데이터가 부족합니다. (독거노인 파일에 성별 정보가 없거나, 데이터 로드/병합 실패)")
 
