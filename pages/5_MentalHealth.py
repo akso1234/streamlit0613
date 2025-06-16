@@ -81,96 +81,110 @@ def analyze_elderly_mental_condition_cached(df_seoul_condition, elderly_groups):
 # --- Colab Cell 15, 17, 20, 21의 로직을 Streamlit용 함수로 변환 ---
 @st.cache_data
 def preprocess_lonely_elderly_data_revised_cached(file_path):
-    df_raw = load_csv(file_path, header_config=0) # utils.load_csv 사용
+    # '독거노인+현황(연령별_동별)_20250523002757.csv' 파일은 일반 CSV로 가정하고 header=0으로 로드
+    df_raw = load_csv(file_path, header_config=0, encoding='utf-8-sig') # encoding 명시
     if df_raw is None or df_raw.empty:
         st.warning(f"독거노인 파일 '{os.path.basename(file_path)}'을 로드하지 못했거나 비어있습니다.")
         return pd.DataFrame()
 
+    # 예상되는 컬럼명 (실제 파일에 따라 확인 및 조정 필요)
+    # 예: '동별(1)', '독거노인별', '성별', '2019 년', '2020 년', ...
+    # '동별(1)' 컬럼을 '시군구'로, '독거노인별' 컬럼을 사용해 필터링, '성별'로 필터링
+    # 연도 컬럼명 정리
     year_cols_rename_map = {}
     for col in df_raw.columns:
-        if " 년" in col: year_cols_rename_map[col] = col.replace(" 년", "").strip()
+        if " 년" in col and col[:4].isdigit(): # "2019 년" 형태의 컬럼
+            year_cols_rename_map[col] = col.replace(" 년", "").strip()
+        elif col.endswith("년") and col[:-1].isdigit(): # "2019년" 형태의 컬럼
+            year_cols_rename_map[col] = col[:-1]
+
     df_raw.rename(columns=year_cols_rename_map, inplace=True)
     processed_year_cols = [str(year) for year in range(2019, 2024) if str(year) in df_raw.columns]
 
+    # 컬럼명 확인 (파일의 실제 컬럼명에 맞게 조정)
+    sigungu_col_name = '동별(1)' # 또는 '동별', '자치구' 등 파일의 실제 컬럼명
+    dokgo_type_col_name = '독거노인별' # 파일의 실제 컬럼명
+    gender_col_name = '성별' # 파일의 실제 컬럼명
+
+    if not all(c in df_raw.columns for c in [sigungu_col_name, dokgo_type_col_name, gender_col_name]):
+        st.error(f"독거노인 파일에 필요한 컬럼({sigungu_col_name}, {dokgo_type_col_name}, {gender_col_name})이 없습니다. 파일 내용을 확인해주세요.")
+        # print("사용 가능한 컬럼:", df_raw.columns.tolist()) # 디버깅용
+        return pd.DataFrame()
+
     df_filtered = df_raw[
-        (df_raw['독거노인별'] == '합계') &
-        (df_raw['성별'].isin(['남', '여']))
+        (df_raw[dokgo_type_col_name] == '합계') & # 이 부분은 '독거노인현황(성별)' 파일과 다를 수 있음. 파일 확인 필요.
+        (df_raw[gender_col_name].isin(['남', '여']))
     ].copy()
-    df_filtered.rename(columns={'동별': '시군구'}, inplace=True)
+
+    df_filtered.rename(columns={sigungu_col_name: '시군구'}, inplace=True)
     df_sigungu_data = df_filtered[df_filtered['시군구'].str.endswith('구', na=False)].copy()
 
     if not processed_year_cols or df_sigungu_data.empty: return pd.DataFrame()
 
     df_sigungu_melted = df_sigungu_data.melt(
-        id_vars=['시군구', '성별'], value_vars=processed_year_cols,
+        id_vars=['시군구', gender_col_name], # 성별 컬럼명 사용
+        value_vars=processed_year_cols,
         var_name='연도', value_name='독거노인수'
     )
+    # melt 후 성별 컬럼명을 일관되게 '성별'로 변경
+    df_sigungu_melted.rename(columns={gender_col_name: '성별'}, inplace=True)
+
+
     df_sigungu_melted['연도'] = pd.to_numeric(df_sigungu_melted['연도'], errors='coerce').dropna().astype(int)
     df_sigungu_melted['독거노인수'] = pd.to_numeric(df_sigungu_melted['독거노인수'].astype(str).str.replace(',', '', regex=False), errors='coerce').fillna(0).astype(int)
     return df_sigungu_melted
 
 @st.cache_data
 def preprocess_elderly_population_total_cached(file_path):
-    df_population_data_rows = load_csv(file_path, header_config=None, skip_rows=4, dtype_str=True)
-    if df_population_data_rows is None or df_population_data_rows.empty:
+    # 이 함수는 '노인 인구 및 독거노인 현황' 페이지의 preprocess_goryeong_data_cached 와 유사한 기능을 수행해야 함
+    # 해당 함수를 직접 사용하거나, 그 로직을 여기에 맞게 적용하는 것이 좋음.
+    # 여기서는 이전 코드의 구조를 유지하며, MultiIndex를 가정하고 로드 시도
+    df_goryeong_raw = load_csv(file_path, header_config=[0,1,2,3])
+    if df_goryeong_raw is None or df_goryeong_raw.empty:
         st.warning(f"고령자현황 파일 '{os.path.basename(file_path)}'을 로드하지 못했거나 비어있습니다.")
         return pd.DataFrame()
 
-    header_tuples = []
-    try: # 헤더 생성 로직은 Colab의 복잡한 부분을 간소화하거나, load_csv에서 header_config=[0,1,2,3]을 사용하는 것을 고려
-        # 단순화된 접근: 첫 4줄을 MultiIndex로 사용한다고 가정. load_csv가 이를 지원하면 더 좋음.
-        # 여기서는 Colab의 Cell 20의 MultiIndex 생성 로직을 직접 구현하기보다,
-        # Streamlit 앱에서는 고령자현황_20250531210628.csv 파일의 전처리된 버전을 사용하거나,
-        # 이전 `노인인구 및 독거노인 현황` 페이지의 `preprocess_goryeong_data_cached`를 재활용하는 것을 권장.
-        # 일단은 해당 파일이 Colab과 동일한 MultiIndex 구조라고 가정하고 진행.
-        # 실제 앱에서는 고령자현황_20250531210628.csv를 `preprocess_goryeong_data_cached`로 처리하는 것이 더 일관적임.
-        # 여기서는 시연을 위해 간략화된 추출 로직을 사용.
-        # 이 함수는 Colab Cell 20의 결과와 유사한 DataFrame을 반환해야 함.
-        # 정확한 구현을 위해서는 해당 CSV 파일의 실제 MultiIndex 구조를 파악하고 파싱해야 함.
-        # 임시로 빈 DataFrame 반환 (실제 구현 필요)
-        st.info("`preprocess_elderly_population_total_cached` 함수는 고령자현황 CSV의 복잡한 MultiIndex 파싱이 필요하여, 현재는 더미 데이터를 반환하거나 이전 페이지의 함수를 재활용해야 합니다. 여기서는 간략화합니다.")
-        
-        # 실제 로직 (Colab Cell 20 기반 간소화)
-        df_multi_temp = load_csv(file_path, header_config=[0,1,2,3]) # utils.load_csv가 MultiIndex 지원 가정
-        if df_multi_temp is None or df_multi_temp.empty: return pd.DataFrame()
+    try:
+        # MultiIndex 컬럼을 가진다고 가정
+        df_goryeong_raw.columns = pd.MultiIndex.from_tuples(df_goryeong_raw.columns)
+        # 필요한 데이터 추출 로직 (Colab Cell 20 기반)
+        # '합계' 행 및 '소계'가 아닌 구 데이터 필터링
+        df_filtered = df_goryeong_raw[df_goryeong_raw.iloc[:,0] == '합계']
+        df_sigungu_rows = df_filtered[df_filtered.iloc[:,1] != '소계']
 
         df_sigungu_elderly_pop_list_total = []
-        sigungu_data_rows = df_multi_temp[
-            (df_multi_temp.iloc[:,0].astype(str).str.strip() == '합계') &
-            (df_multi_temp.iloc[:,1].astype(str).str.strip() != '소계')
-        ].copy()
+        for index, row_data in df_sigungu_rows.iterrows():
+            sigungu_name = row_data.iloc[1] # 두 번째 열이 구 이름
+            if pd.isna(sigungu_name) or not str(sigungu_name).strip().endswith('구'):
+                continue
 
-        if not sigungu_data_rows.empty:
-            for index, row_data in sigungu_data_rows.iterrows():
-                sigungu_name = row_data.iloc[1] # 두 번째 컬럼이 구 이름
-                if pd.isna(sigungu_name) or not str(sigungu_name).endswith('구'): continue
-
-                for year_int in range(2019, 2024):
-                    year_str = str(year_int)
-                    # 컬럼 키는 실제 MultiIndex에 따라 조정 필요
-                    # 예: (year_str, '65세이상인구', '소계', '소계')
-                    pop_col_key = (year_str, '65세이상 인구', '소계', '소계') # 일반적인 컬럼명 가정
-                    if len(row_data.index.names) >1 and isinstance(row_data.index, pd.MultiIndex): # MultiIndex Series
-                        pop_col_key_actual = next((k for k in row_data.index if k[0]==year_str and '65세이상' in k[1] and k[2]=='소계' and k[3]=='소계'), None)
-                    else: # SingleIndex Series
-                         pop_col_key_actual = next((k for k in row_data.index if year_str in k and '65세이상' in k and '소계' in k), None)
-
-
-                    total_elderly_val = 0
-                    if pop_col_key_actual and pop_col_key_actual in row_data.index:
-                        value_raw = row_data[pop_col_key_actual]
-                        if pd.notna(value_raw) and str(value_raw).strip() not in ['', '-']:
-                            total_elderly_val = int(str(value_raw).replace(',', '').strip())
-                    
-                    df_sigungu_elderly_pop_list_total.append({
-                        '시군구': sigungu_name, '연도': year_int, '총_65세_이상_노인인구': total_elderly_val
-                    })
-            if df_sigungu_elderly_pop_list_total:
-                return pd.DataFrame(df_sigungu_elderly_pop_list_total)
+            for year_int in range(2019, 2024):
+                year_str = str(year_int)
+                # 컬럼명 (Year, '65세이상 인구', '소계', '소계') 또는 유사한 형태
+                # 실제 컬럼명 확인 후 정확한 키 사용 필요
+                pop_col_key = None
+                for col in row_data.index: # MultiIndex 순회
+                    if isinstance(col, tuple) and len(col) == 4:
+                        if col[0] == year_str and '65세이상' in col[1] and col[2] == '소계' and col[3] == '소계':
+                            pop_col_key = col
+                            break
+                
+                total_elderly_val = 0
+                if pop_col_key and pop_col_key in row_data.index:
+                    value_raw = row_data[pop_col_key]
+                    if pd.notna(value_raw) and str(value_raw).strip() not in ['', '-']:
+                       total_elderly_val = int(str(value_raw).replace(',', '').strip())
+                
+                df_sigungu_elderly_pop_list_total.append({
+                    '시군구': sigungu_name.strip(), '연도': year_int, '총_65세_이상_노인인구': total_elderly_val
+                })
+        if df_sigungu_elderly_pop_list_total:
+            return pd.DataFrame(df_sigungu_elderly_pop_list_total)
         return pd.DataFrame()
 
     except Exception as e:
         st.error(f"고령자 현황 파일 처리 중 오류(preprocess_elderly_population_total_cached): {e}")
+        # print("사용 가능한 컬럼:", df_goryeong_raw.columns.tolist()) # 디버깅용
         return pd.DataFrame()
 
 
@@ -184,7 +198,7 @@ def aggregate_mental_patients_sigungu_gender_cached(dataframes_by_condition, eld
         df_elderly = df_condition[df_condition['연령구분'].isin(elderly_age_groups)].copy()
         if df_elderly.empty: continue
 
-        id_vars = ['시군구', '성별', '질환명'] # 시도, 연령구분은 최종 집계에 불필요
+        id_vars = ['시군구', '성별', '질환명']
         value_vars = [col for col in df_elderly.columns if any(y_str in col for y_str in ['2019년','2020년','2021년','2022년','2023년']) and '환자수' in col]
         if not value_vars: continue
 
@@ -210,7 +224,7 @@ def aggregate_mental_patients_sigungu_total_cached(dataframes_by_condition, elde
         df_elderly = df_condition[df_condition['연령구분'].isin(elderly_age_groups)].copy()
         if df_elderly.empty: continue
 
-        id_vars = ['시군구', '질환명'] # 성별은 합산, 시도/연령구분 불필요
+        id_vars = ['시군구', '질환명']
         value_vars = [col for col in df_elderly.columns if any(y_str in col for y_str in ['2019년','2020년','2021년','2022년','2023년']) and '환자수' in col]
         if not value_vars: continue
 
@@ -298,9 +312,13 @@ def plot_sigungu_lonely_vs_mental_gender_ratio(df_merged, selected_condition, se
         (df_merged['연도'] == selected_year)
     ].copy()
 
-    if df_plot.empty or df_plot['독거노인_대비_질환자_비율(%)'].sum() == 0:
+    if df_plot.empty or ('독거노인_대비_질환자_비율(%)' in df_plot.columns and df_plot['독거노인_대비_질환자_비율(%)'].sum() == 0):
         st.info(f"{selected_year}년 {selected_condition}에 대한 유의미한 구별 비율 데이터가 없습니다.")
         return
+    if '독거노인_대비_질환자_비율(%)' not in df_plot.columns:
+        st.warning("`독거노인_대비_질환자_비율(%)` 컬럼이 없어 그래프를 그릴 수 없습니다.")
+        return
+
 
     order_sigungu = sorted(df_plot['시군구'].unique())
 
@@ -331,8 +349,11 @@ def plot_sigungu_total_elderly_vs_mental_ratio(df_merged, selected_condition, se
         (df_merged['연도'] == selected_year)
     ].copy()
 
-    if df_plot.empty or df_plot['전체노인인구_대비_질환자_비율(%)'].sum() == 0:
+    if df_plot.empty or ('전체노인인구_대비_질환자_비율(%)' in df_plot.columns and df_plot['전체노인인구_대비_질환자_비율(%)'].sum() == 0):
         st.info(f"{selected_year}년 {selected_condition}에 대한 유의미한 구별 비율 데이터가 없습니다.")
+        return
+    if '전체노인인구_대비_질환자_비율(%)' not in df_plot.columns:
+        st.warning("`전체노인인구_대비_질환자_비율(%)` 컬럼이 없어 그래프를 그릴 수 없습니다.")
         return
 
     df_plot = df_plot.sort_values(by='전체노인인구_대비_질환자_비율(%)', ascending=False)
@@ -361,8 +382,9 @@ def run_mental_health_page():
         "불안장애": "data/지역별 불안장애 진료현황(2019년~2023년).csv", "조울증": "data/지역별 조울증 진료현황(2019년~2023년).csv",
         "조현병": "data/지역별 조현병 진료현황(2019년~2023년).csv"
     }
-    lonely_elderly_file_path_st = 'data/201_DT_201004_F030011_20250601032523.csv' # Streamlit용 독거노인 파일 경로
-    elderly_population_total_file_path_st = 'data/고령자현황_20250531210628.csv' # Streamlit용 전체 고령자 파일 경로
+    # 독거노인 파일명 변경
+    lonely_elderly_file_path_st = 'data/독거노인+현황(연령별_동별)_20250523002757.csv'
+    elderly_population_total_file_path_st = 'data/고령자현황_20250531210628.csv'
 
     elderly_age_groups_mental = ['60~69세', '70~79세', '80~89세', '90~99세', '100세 이상']
     available_years_int = [2019, 2020, 2021, 2022, 2023]
@@ -382,7 +404,6 @@ def run_mental_health_page():
                 temp_summary = total_df.copy(); temp_summary['질환명'] = condition_key
                 all_conditions_summaries_list.append(temp_summary)
     
-    # 추가 데이터 로드 (구별 분석용)
     df_sigungu_lonely_elderly_gender_st = preprocess_lonely_elderly_data_revised_cached(lonely_elderly_file_path_st)
     df_sigungu_total_elderly_population_st = preprocess_elderly_population_total_cached(elderly_population_total_file_path_st)
     df_sigungu_mental_patients_gender_all_conditions_st = aggregate_mental_patients_sigungu_gender_cached(dataframes_by_condition, elderly_age_groups_mental)
@@ -431,18 +452,23 @@ def run_mental_health_page():
     with main_tab3:
         st.subheader("구별 상세 분석")
         
-        selected_year_tab3 = st.selectbox(
-            "조회 연도 선택 (구별 분석용)", available_years_int, 
-            index=available_years_int.index(st.session_state.selected_year_mental), # slider와 연동
-            key="mental_year_select_tab3"
-        )
+        # main_tab2의 슬라이더 값과 연동하기 위해 session_state 사용
+        # 또는 이 탭에서 독립적인 연도 선택기 사용 가능
+        # 여기서는 main_tab2와 연동되도록 session_state.selected_year_mental을 사용
+        selected_year_tab3 = st.session_state.selected_year_mental 
+        
+        # 이 탭에서 연도/질환을 독립적으로 선택하고 싶다면 아래 주석 해제
+        # selected_year_tab3 = st.selectbox(
+        #     "조회 연도 선택 (구별 분석용)", available_years_int, 
+        #     index=available_years_int.index(st.session_state.selected_year_mental),
+        #     key="mental_year_select_tab3_independent"
+        # )
+
         selected_condition_tab3 = st.selectbox(
             "분석할 질환 선택 (구별 분석용)", list(dataframes_by_condition.keys()),
             key="mental_condition_select_tab3"
         )
         
-        # 선택된 연도와 질환으로 데이터 필터링 및 병합
-        # 1. 독거노인 성별 대비 정신질환자 성별 비율
         df_sigungu_lonely_vs_mental_merged = pd.DataFrame()
         if not df_sigungu_mental_patients_gender_all_conditions_st.empty and not df_sigungu_lonely_elderly_gender_st.empty:
             df_sigungu_lonely_vs_mental_merged = pd.merge(
@@ -457,21 +483,25 @@ def run_mental_health_page():
                 (df_sigungu_lonely_vs_mental_merged['정신질환_환자수'] / df_sigungu_lonely_vs_mental_merged['독거노인수']) * 100, 0
             )
         
-        # 2. 전체 65세 이상 노인 대비 정신질환자(성별합산) 비율
         df_sigungu_total_elderly_vs_mental_merged = pd.DataFrame()
         if not df_sigungu_mental_total_patients_for_ratio_st.empty and not df_sigungu_total_elderly_population_st.empty:
              df_sigungu_total_elderly_vs_mental_merged = pd.merge(
                 df_sigungu_mental_total_patients_for_ratio_st,
-                df_sigungu_total_elderly_population_st, # 컬럼명: '시군구', '연도', '총_65세_이상_노인인구'
+                df_sigungu_total_elderly_population_st,
                 on=['연도', '시군구'], how='left'
             )
              df_sigungu_total_elderly_vs_mental_merged.rename(columns={'총_65세_이상_노인인구': '분모_전체_노인인구'}, inplace=True, errors='ignore')
+             # '분모_전체_노인인구' 컬럼이 없는 경우를 대비한 get 사용 및 기본값 0 처리
              df_sigungu_total_elderly_vs_mental_merged['분모_전체_노인인구'] = pd.to_numeric(df_sigungu_total_elderly_vs_mental_merged.get('분모_전체_노인인구'), errors='coerce').fillna(0)
              df_sigungu_total_elderly_vs_mental_merged['질환별_노인_환자수_총합'] = pd.to_numeric(df_sigungu_total_elderly_vs_mental_merged['질환별_노인_환자수_총합'], errors='coerce').fillna(0)
-             df_sigungu_total_elderly_vs_mental_merged['전체노인인구_대비_질환자_비율(%)'] = np.where(
-                df_sigungu_total_elderly_vs_mental_merged['분모_전체_노인인구'] > 0,
-                (df_sigungu_total_elderly_vs_mental_merged['질환별_노인_환자수_총합'] / df_sigungu_total_elderly_vs_mental_merged['분모_전체_노인인구']) * 100, 0
-            )
+             
+             if '분모_전체_노인인구' in df_sigungu_total_elderly_vs_mental_merged.columns:
+                 df_sigungu_total_elderly_vs_mental_merged['전체노인인구_대비_질환자_비율(%)'] = np.where(
+                    df_sigungu_total_elderly_vs_mental_merged['분모_전체_노인인구'] > 0,
+                    (df_sigungu_total_elderly_vs_mental_merged['질환별_노인_환자수_총합'] / df_sigungu_total_elderly_vs_mental_merged['분모_전체_노인인구']) * 100, 0
+                )
+             else:
+                 st.warning("구별 전체 65세 이상 노인 인구 데이터('분모_전체_노인인구')를 찾을 수 없어 해당 비율을 계산할 수 없습니다.")
 
 
         sub_tab_sigungu1, sub_tab_sigungu2 = st.tabs([
@@ -483,14 +513,14 @@ def run_mental_health_page():
             if not df_sigungu_lonely_vs_mental_merged.empty:
                 plot_sigungu_lonely_vs_mental_gender_ratio(df_sigungu_lonely_vs_mental_merged, selected_condition_tab3, selected_year_tab3)
             else:
-                st.info("독거노인 성별 대비 정신질환자 비율을 계산할 데이터가 부족합니다. (데이터 파일 및 전처리 과정 확인 필요)")
+                st.info("독거노인 성별 대비 정신질환자 비율을 계산할 데이터가 부족합니다.")
 
         with sub_tab_sigungu2:
             st.markdown(f"##### {selected_year_tab3}년 {selected_condition_tab3} - 구별 전체 65세+ 노인 대비 환자 비율")
             if not df_sigungu_total_elderly_vs_mental_merged.empty:
                  plot_sigungu_total_elderly_vs_mental_ratio(df_sigungu_total_elderly_vs_mental_merged, selected_condition_tab3, selected_year_tab3)
             else:
-                st.info("전체 65세 이상 노인 대비 정신질환자 비율을 계산할 데이터가 부족합니다. (데이터 파일 및 전처리 과정 확인 필요)")
+                st.info("전체 65세 이상 노인 대비 정신질환자 비율을 계산할 데이터가 부족합니다.")
 
 
 if __name__ == "__main__":
