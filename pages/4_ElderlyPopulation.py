@@ -1,3 +1,5 @@
+--- START OF FILE 4_ElderlyPopulation.py ---
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -76,81 +78,6 @@ def preprocess_goryeong_data_cached(df_raw): # 고령자현황 원본 데이터 
         df_districts = df.loc['합계']
         if '소계' in df_districts.index: df_districts = df_districts[df_districts.index != '소계']
     return df_districts, seoul_total_data
-
-# --- Notebook에서 가져온 데이터 처리 함수 ---
-@st.cache_data
-def process_population_data_notebook(filepath, years_list):
-    df = load_csv(filepath, header_config=[0, 1, 2]) # utils의 load_csv 사용
-    if df is None or df.empty:
-        st.warning(f"'{os.path.basename(filepath)}' 파일(등록인구)을 로드하지 못했거나 비어있습니다.")
-        return pd.DataFrame()
-
-    if len(df.columns) < 2: return pd.DataFrame()
-    col_filter_criteria1 = df.columns[0]
-    col_for_district_or_sogye = df.columns[1]
-
-    try:
-        condition1 = (df[col_filter_criteria1] == '합계')
-        condition2 = (df[col_for_district_or_sogye] != '소계')
-        df_filtered_rows = df[condition1 & condition2]
-        if df_filtered_rows.empty: return pd.DataFrame()
-    except KeyError: return pd.DataFrame()
-    except Exception: return pd.DataFrame()
-
-    all_year_data = []
-    for year_str in years_list:
-        district_name_col_tuple = col_for_district_or_sogye
-        korean_pop_col_tuple = (year_str, '한국인 (명)', '소계')
-        if district_name_col_tuple not in df_filtered_rows.columns or korean_pop_col_tuple not in df_filtered_rows.columns:
-            continue
-        try:
-            temp_df_for_year = df_filtered_rows[[district_name_col_tuple, korean_pop_col_tuple]].copy()
-        except KeyError: continue
-        temp_df_for_year.columns = ['자치구', '총한국인']
-        temp_df_for_year['연도'] = year_str
-        all_year_data.append(temp_df_for_year)
-
-    if not all_year_data: return pd.DataFrame()
-    final_df = pd.concat(all_year_data, ignore_index=True)
-    final_df['총한국인'] = pd.to_numeric(final_df['총한국인'], errors='coerce').fillna(0).astype(int)
-    return final_df
-
-@st.cache_data
-def process_elderly_data_notebook(filepath, years_list): # 고령자현황 노트북 버전 (다른 CSV 사용)
-    df = load_csv(filepath, header_config=[0, 1, 2, 3]) # utils의 load_csv 사용
-    if df is None or df.empty:
-        st.warning(f"'{os.path.basename(filepath)}' 파일(고령자현황-노트북용)을 로드하지 못했거나 비어있습니다.")
-        return pd.DataFrame()
-
-    if len(df.columns) < 2: return pd.DataFrame()
-    col_filter_criteria1 = df.columns[0]
-    col_for_district_or_sogye = df.columns[1]
-
-    try:
-        condition1 = (df[col_filter_criteria1] == '합계')
-        condition2 = (df[col_for_district_or_sogye] != '소계')
-        df_filtered_rows = df[condition1 & condition2]
-        if df_filtered_rows.empty: return pd.DataFrame()
-    except KeyError: return pd.DataFrame()
-    except Exception: return pd.DataFrame()
-
-    all_year_data = []
-    for year_str in years_list:
-        district_name_col_tuple = col_for_district_or_sogye
-        elderly_pop_col_tuple = (year_str, '65세이상 인구', '내국인', '소계') # 노트북과 컬럼명 일치시킴
-        if district_name_col_tuple not in df_filtered_rows.columns or elderly_pop_col_tuple not in df_filtered_rows.columns:
-            continue
-        try:
-            temp_df_for_year = df_filtered_rows[[district_name_col_tuple, elderly_pop_col_tuple]].copy()
-        except KeyError: continue
-        temp_df_for_year.columns = ['자치구', '노인한국인']
-        temp_df_for_year['연도'] = year_str
-        all_year_data.append(temp_df_for_year)
-
-    if not all_year_data: return pd.DataFrame()
-    final_df = pd.concat(all_year_data, ignore_index=True)
-    final_df['노인한국인'] = pd.to_numeric(final_df['노인한국인'], errors='coerce').fillna(0).astype(int)
-    return final_df
 
 # --- 시각화 함수 ---
 def plot_seoul_total_dokgo_trend(df_seoul_total, df_seoul_male, df_seoul_female, year_data_cols):
@@ -234,8 +161,6 @@ def create_dokgo_map_yearly(df_gu_dokgo, selected_year, geo_data):
             if not center_point: continue
             center_lat, center_lon = center_point.y, center_point.x
             
-            # Marker에 연결된 툴팁을 제거합니다.
-            # 구 이름 DivIcon은 그대로 유지됩니다.
             folium.Marker(
                 location=[center_lat, center_lon],
                 icon=folium.DivIcon(
@@ -323,32 +248,6 @@ def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_distric
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.1f}%'))
     plt.tight_layout(); st.pyplot(fig)
 
-# --- Notebook에서 가져온 시각화 함수 ---
-def plot_yearly_elderly_ratio_notebook(df_merged_notebook, target_year_str):
-    """
-    특정 연도의 데이터를 필터링하여 표와 막대 그래프로 시각화합니다. (Notebook 버전)
-    """
-    if df_merged_notebook.empty:
-        st.info(f"{target_year_str}년 데이터를 처리할 수 없습니다 (병합된 데이터 없음).")
-        return
-
-    df_year = df_merged_notebook[df_merged_notebook['연도'] == target_year_str].sort_values(by='노인비율 (%)', ascending=False)
-
-    if df_year.empty:
-        st.info(f"{target_year_str}년 데이터가 병합된 DataFrame에 없습니다.")
-        return
-
-    fig, ax = plt.subplots(figsize=(12, 8))
-    sns.barplot(data=df_year, x='노인비율 (%)', y='자치구', color='slateblue', ax=ax)
-    ax.set_title(f'서울시 자치구별 전체 인구 대비 노인 인구 비율 ({target_year_str}년)', fontsize=16)
-    ax.set_xlabel('노인 인구 비율 (%)', fontsize=12)
-    ax.set_ylabel('자치구', fontsize=12)
-    ax.grid(axis='x', linestyle='--', alpha=0.7)
-    for p in ax.patches:
-        ax.annotate(f"{p.get_width():.2f}%", (p.get_width(), p.get_y() + p.get_height() / 2.),
-                    ha='left', va='center', xytext=(5, 0), textcoords='offset points', fontsize=9)
-    plt.tight_layout(); st.pyplot(fig)
-
 
 # --- Streamlit 페이지 레이아웃 ---
 def run_elderly_population_page():
@@ -356,46 +255,19 @@ def run_elderly_population_page():
     set_korean_font()
 
     available_years_int = [2019, 2020, 2021, 2022, 2023]
-    available_years_str = [str(y) for y in available_years_int] # 노트북용 연도
-    available_years_str_dokgo = [f"{y}년" for y in available_years_int] # 독거노인 데이터는 "년" 포함
+    available_years_str = [str(y) for y in available_years_int] 
+    available_years_str_dokgo = [f"{y}년" for y in available_years_int] 
 
-    # session_state에 선택된 연도 초기화
     if "selected_year_elderly" not in st.session_state:
         st.session_state.selected_year_elderly = available_years_int[-1]
 
-    # 모든 탭에서 사용할 연도 관련 변수를 session_state 기반으로 설정
     selected_year_int = st.session_state.selected_year_elderly
     selected_year_dokgo_format = f"{selected_year_int}년"
-    selected_year_goryeong_format = str(selected_year_int) # 고령자현황(페이지용)
-    selected_year_notebook_format = str(selected_year_int) # 노트북 데이터용
+    selected_year_goryeong_format = str(selected_year_int)
 
-    # 데이터 로드
     df_dokgo_raw_s1923 = load_csv("data/Seoul1923.csv")
-    df_goryeong_raw_page = load_csv("data/고령자현황_20250531210628.csv", header_config=[0,1,2,3]) # 페이지 기존 파일
+    df_goryeong_raw_page = load_csv("data/고령자현황_20250531210628.csv", header_config=[0,1,2,3]) 
     geojson_url = 'https://raw.githubusercontent.com/southkorea/seoul-maps/master/kostat/2013/json/seoul_municipalities_geo_simple.json'
-
-    # Notebook용 데이터 파일 로드
-    file_pop_notebook = 'data/등록인구_20250602171432.csv' # Notebook에서 사용된 파일명
-    file_elderly_notebook = 'data/고령자현황_20250531210628.csv' # Notebook에서 사용된 파일명
-
-    df_total_koreans_notebook = process_population_data_notebook(file_pop_notebook, available_years_str)
-    df_elderly_koreans_notebook = process_elderly_data_notebook(file_elderly_notebook, available_years_str)
-
-    merged_df_notebook_sorted = pd.DataFrame()
-    if not df_total_koreans_notebook.empty and not df_elderly_koreans_notebook.empty:
-        merged_df_notebook = pd.merge(df_total_koreans_notebook, df_elderly_koreans_notebook, on=['자치구', '연도'], how='inner')
-        if not merged_df_notebook.empty:
-            valid_condition = (merged_df_notebook['총한국인'].notna()) & \
-                              (merged_df_notebook['총한국인'] != 0) & \
-                              (merged_df_notebook['노인한국인'].notna())
-            merged_df_notebook['노인비율 (%)'] = 0.0
-            merged_df_notebook.loc[valid_condition, '노인비율 (%)'] = \
-                (merged_df_notebook.loc[valid_condition, '노인한국인'] / merged_df_notebook.loc[valid_condition, '총한국인']) * 100
-            merged_df_notebook['노인비율 (%)'] = merged_df_notebook['노인비율 (%)'].round(2)
-            merged_df_notebook_sorted = merged_df_notebook.sort_values(by=['연도', '자치구']).reset_index(drop=True)
-    else:
-        st.warning("노트북용 인구 또는 노인 인구 데이터 처리 중 오류가 발생하여 '전체 대비 노인 비율' 그래프를 생성할 수 없습니다.")
-
 
     @st.cache_data
     def get_geojson_data_cached_elderly_page(url): return load_geojson(url)
@@ -433,23 +305,22 @@ def run_elderly_population_page():
         plot_top_gu_dokgo_trend(df_gu_dokgo_s1923, year_cols_dokgo_s1923_from_data if year_cols_dokgo_s1923_from_data else available_years_str_dokgo, N=10)
 
     with main_tab3:
-        # 슬라이더를 "자치구별 현황 비교" 탭 내부에 배치
         new_selected_year_from_slider = st.slider(
             "조회 연도 선택",
             min_value=available_years_int[0],
             max_value=available_years_int[-1],
             step=1,
-            value=st.session_state.selected_year_elderly, # 현재 session_state 값으로 슬라이더 초기화
+            value=st.session_state.selected_year_elderly, 
             key="elderly_year_slider_main_tab3" 
         )
 
-        # 슬라이더 값이 변경되면 session_state를 업데이트하고 페이지를 rerun함
         if st.session_state.selected_year_elderly != new_selected_year_from_slider:
             st.session_state.selected_year_elderly = new_selected_year_from_slider
             st.rerun() 
 
-        sub_tab_gu1, sub_tab_gu2, sub_tab_gu3, sub_tab_gu4, sub_tab_gu5 = st.tabs([
-            "고령화율", "독거노인 수", "노인 중 독거노인 비율", "전체 대비 노인 비율", "독거노인 지도"
+        # "전체 대비 노인 비율" 탭 제거
+        sub_tab_gu1, sub_tab_gu2, sub_tab_gu3, sub_tab_gu5 = st.tabs([
+            "고령화율", "독거노인 수", "노인 중 독거노인 비율", "독거노인 지도"
         ])
         with sub_tab_gu1:
             st.markdown(f"##### {selected_year_int}년 자치구별 고령화율")
@@ -460,12 +331,7 @@ def run_elderly_population_page():
         with sub_tab_gu3:
             st.markdown(f"##### {selected_year_int}년 자치구별 65세 이상 인구 중 독거노인 비율")
             plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_gu_dokgo_s1923, df_goryeong_districts_page, selected_year_dokgo_format)
-        with sub_tab_gu4:
-            st.markdown(f"##### {selected_year_int}년 자치구별 전체 인구 대비 노인 인구 비율")
-            if not merged_df_notebook_sorted.empty:
-                plot_yearly_elderly_ratio_notebook(merged_df_notebook_sorted, selected_year_notebook_format)
-            else:
-                st.info("전체 인구 대비 노인 인구 비율 데이터를 생성할 수 없습니다. 데이터 파일을 확인해주세요.")
+        # sub_tab_gu4 (전체 대비 노인 비율) 관련 코드 블록 전체 삭제
         with sub_tab_gu5:
             st.markdown(f"##### {selected_year_int}년 자치구별 독거노인 수 지도")
             if seoul_geo_data_elderly:
