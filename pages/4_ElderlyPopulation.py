@@ -321,17 +321,13 @@ def run_elderly_population_page():
             "고령화율", "독거노인 수", "노인 중 독거노인 비율", "독거노인 지도"
         ])
         with sub_tab_gu1:
-            st.markdown(f"##### {selected_year_int}년 자치구별 고령화율")
             plot_district_elderly_ratio_yearly(df_goryeong_districts_page, selected_year_goryeong_format)
         with sub_tab_gu2:
-            st.markdown(f"##### {selected_year_int}년 자치구별 독거노인 수")
             plot_dokgo_by_gu_yearly(df_gu_dokgo_s1923, selected_year_dokgo_format)
         with sub_tab_gu3:
-            st.markdown(f"##### {selected_year_int}년 자치구별 65세 이상 인구 중 독거노인 비율")
             plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_gu_dokgo_s1923, df_goryeong_districts_page, selected_year_dokgo_format)
         # sub_tab_gu4 (전체 대비 노인 비율) 관련 코드 블록 전체 삭제
         with sub_tab_gu5:
-            st.markdown(f"##### {selected_year_int}년 자치구별 독거노인 수 지도")
             if seoul_geo_data_elderly:
                 dokgo_map_gu = create_dokgo_map_yearly(df_gu_dokgo_s1923, selected_year_dokgo_format, seoul_geo_data_elderly)
                 if dokgo_map_gu: st_folium(dokgo_map_gu, width=800, height=600)
