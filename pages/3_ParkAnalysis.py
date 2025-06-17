@@ -295,7 +295,6 @@ def run_park_analysis_page():
     ])
 
     with tab1:
-        st.subheader(f"{selected_year_str}년 자치구별 공원 현황")
         st.markdown("##### 총 공원 면적 (천㎡)")
         if not df_park_area.empty:
             plot_yearly_district_comparison(df_park_area, "면적", "천㎡", selected_year_str, bar_color='cornflowerblue')
