@@ -43,8 +43,6 @@ def run_hospital_page():
     if selected_year != st.session_state.selected_year_hospital:
         st.session_state.selected_year_hospital = selected_year
 
-    st.write(f"### 현재 선택된 연도: {selected_year}년")
-
     df_hosp, df_beds, gdf_gu = load_raw_data(selected_year) 
     
     if df_hosp is None or df_beds is None or gdf_gu is None : 
