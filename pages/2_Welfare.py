@@ -51,8 +51,6 @@ def run_welfare_page():
     if selected_year != st.session_state.selected_year_welfare:
         st.session_state.selected_year_welfare = selected_year
 
-    st.write(f"### 현재 선택된 연도: {selected_year}년")
-
     # ---------------------------------------------------
     # 3) 연도별 파일 경로 생성 및 존재 여부 체크
     # ---------------------------------------------------
@@ -87,7 +85,6 @@ def run_welfare_page():
     # Tab 0: 주거복지시설 (Sheet0)
     # ----------------------
     with tab0:
-        st.subheader(f"▶ {selected_year}년 노인주거복지시설")
         df0 = load_nursing_sheet0(excel_path, districts)
         draw_sheet0_charts(df0)
 
@@ -95,7 +92,6 @@ def run_welfare_page():
     # Tab 1: 의료복지시설 (Sheet1)
     # ----------------------
     with tab1:
-        st.subheader(f"▶ {selected_year}년 노인의료복지시설")
         df1 = load_nursing_sheet1(excel_path, districts)
         draw_sheet1_charts(df1)
 
@@ -103,7 +99,6 @@ def run_welfare_page():
     # Tab 2: 여가복지시설 (CSV)
     # ----------------------
     with tab2:
-        st.subheader(f"▶ {selected_year}년 노인여가복지시설")
         df_welf, df_centers = load_nursing_csv(csv_path, districts)
         draw_nursing_csv_charts(df_welf, df_centers)
 
@@ -111,7 +106,6 @@ def run_welfare_page():
     # Tab 3: 재가노인복지시설 (Sheet3)
     # ----------------------
     with tab3:
-        st.subheader(f"▶ {selected_year}년 재가노인복지시설")
         df3 = load_nursing_sheet3(excel_path, districts)
         draw_sheet3_charts(df3)
 
@@ -119,7 +113,6 @@ def run_welfare_page():
     # Tab 4: 노인일자리지원기관 (Sheet4)
     # ----------------------
     with tab4:
-        st.subheader(f"▶ {selected_year}년 노인일자리지원기관")
         df4 = load_nursing_sheet4(excel_path, districts)
         draw_sheet4_charts(df4)
 
@@ -127,7 +120,6 @@ def run_welfare_page():
     # Tab 5: 치매전담형장기요양 (Sheet5)
     # ----------------------
     with tab5:
-        st.subheader(f"▶ {selected_year}년 치매전담형장기요양시설")
         df5 = load_nursing_sheet5(excel_path, districts)
         draw_sheet5_charts(df5)
 
