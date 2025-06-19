@@ -1,3 +1,5 @@
+--- START OF FILE 6_HousingSafety (3).py ---
+
 # --- START OF 6_HousingSafety.py ---
 import streamlit as st
 import pandas as pd
@@ -411,6 +413,11 @@ def plot_housing_elderly_ratio_comparison(df_housing, df_elderly):
     if df_merged_ratios.empty:
         st.info("병합된 노후 주택 및 고령 인구 비율 데이터가 없습니다.")
         return
+
+    # --- START OF MODIFICATION ---
+    # '자치구' 컬럼 대신 '발생장소_구' 컬럼을 사용하여 정렬합니다.
+    ordered_gus = df_merged_ratios.sort_values(by='노후주택비율', ascending=False)['발생장소_구'].tolist()
+    # --- END OF MODIFICATION ---
 
     df_plot_melted = df_merged_ratios.melt(
         id_vars='발생장소_구',
