@@ -1,23 +1,9 @@
 # --- START OF 5_MentalHealth.py ---
 import streamlit as st
 import pandas as pd
-import os # os 모듈 임포트 확인
-
-# --- 경로 문제 해결을 위한 코드 추가 ---
-import sys
-# 현재 파일(5_MentalHealth.py)의 절대 경로를 가져옵니다.
-current_file_path = os.path.abspath(__file__)
-# 현재 파일이 있는 디렉토리 (예: /mount/src/streamlit0613/pages)
-current_dir = os.path.dirname(current_file_path)
-# 부모 디렉토리 (예: /mount/src/streamlit0613) - 프로젝트 루트
-parent_dir = os.path.dirname(current_dir)
-
-# sys.path에 부모 디렉토리가 없다면 추가합니다.
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-# --- 경로 문제 해결 코드 끝 ---
-
-from utils import set_korean_font, load_csv
+from utils import set_korean_font, load_csv # load_excel_sheets는 사용 안 함
+# data_processing.py의 함수를 사용하지 않는다면 아래 임포트는 필요 없음
+# from data_processing import ...
 from chart_utils import (
     plot_total_elderly_trend,
     plot_gender_elderly_trend,
@@ -26,6 +12,7 @@ from chart_utils import (
     plot_pie_chart_by_year,
     plot_sigungu_mental_patients_by_condition_year
 )
+import os
 
 @st.cache_data
 def preprocess_mental_health_data_cached(file_path, condition_name):
@@ -119,7 +106,6 @@ def aggregate_mental_patients_sigungu_total_cached(dataframes_by_condition, elde
     if not all_mental_patients_list_for_ratio: return pd.DataFrame()
     return pd.concat(all_mental_patients_list_for_ratio).reset_index(drop=True)
 
-
 def run_mental_health_page():
     set_korean_font()
     st.title("서울시 노인 정신질환 현황")
@@ -135,9 +121,12 @@ def run_mental_health_page():
     elderly_age_groups_mental = ['60~69세', '70~79세', '80~89세', '90~99세', '100세 이상']
     available_years_for_mental_analysis = [2019, 2020, 2021, 2022, 2023]
 
-    if "selected_year_mental_tab2" not in st.session_state:
+    # 각 탭에서 사용할 연도 선택 변수 (세션 상태로 관리)
+    if "selected_year_mental_tab1" not in st.session_state: # 개별 질환 분석 탭용
+        st.session_state.selected_year_mental_tab1 = available_years_for_mental_analysis[-1]
+    if "selected_year_mental_tab2" not in st.session_state: # 종합 비교 탭용
         st.session_state.selected_year_mental_tab2 = available_years_for_mental_analysis[-1]
-    if "selected_year_mental_tab3" not in st.session_state:
+    if "selected_year_mental_tab3" not in st.session_state: # 구별 분석 탭용
         st.session_state.selected_year_mental_tab3 = available_years_for_mental_analysis[-1]
 
     dataframes_by_condition = {}
@@ -146,6 +135,7 @@ def run_mental_health_page():
 
     for condition_key, file_path_value in file_paths_mental_health.items():
         if not os.path.exists(file_path_value):
+            # st.sidebar.warning(f"데이터 파일 없음: {os.path.basename(file_path_value)}") # 사이드바 대신 메인에 표시하도록 변경
             continue 
         df_condition_raw = preprocess_mental_health_data_cached(file_path_value, condition_key)
         if df_condition_raw is not None and not df_condition_raw.empty:
@@ -164,6 +154,7 @@ def run_mental_health_page():
 
     df_sigungu_mental_total_patients_for_tab3 = aggregate_mental_patients_sigungu_total_cached(dataframes_by_condition, elderly_age_groups_mental)
 
+    # 탭 제목에서 "(서울시 전체)" 제거
     tab1_title = "개별 질환 분석"
     tab2_title = "정신질환 종합 비교"
     tab3_title = "구별 정신질환자 수"
@@ -171,12 +162,13 @@ def run_mental_health_page():
     main_tab1, main_tab2, main_tab3 = st.tabs([tab1_title, tab2_title, tab3_title])
 
     with main_tab1:
-        st.subheader(tab1_title)
+        st.subheader(tab1_title) # 수정된 탭 제목 사용
         
+        # 개별 질환 분석 탭에서는 연도 슬라이더가 필요하지 않음 (모든 연도 추이 표시)
         selected_condition_name_tab1 = st.selectbox(
             "분석할 질환을 선택하세요:", 
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"], 
-            key="mental_condition_select_tab1_final_v3"
+            key="mental_condition_select_tab1_revised"
         )
         if dataframes_by_condition and selected_condition_name_tab1 in dataframes_by_condition:
             df_to_analyze = dataframes_by_condition[selected_condition_name_tab1]
@@ -196,49 +188,46 @@ def run_mental_health_page():
 
 
     with main_tab2:
-        current_selected_year_tab2 = st.session_state.selected_year_mental_tab2
-        st.subheader(f"{current_selected_year_tab2}년 정신질환별 환자수 비교")
-
+        # 슬라이더를 탭 바로 밑으로 이동
         selected_year_val_tab2 = st.slider(
-            "조회 연도 선택", # 레이블에서 "(종합 비교)" 제거
+            "조회 연도 선택 (종합 비교)", 
             min_value=min(available_years_for_mental_analysis), 
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab2, 
             step=1,
-            key="mental_year_slider_tab2_main_v4"
+            key="mental_year_slider_tab2_main" # 고유한 키
         )
-        if st.session_state.selected_year_mental_tab2 != selected_year_val_tab2:
-            st.session_state.selected_year_mental_tab2 = selected_year_val_tab2
-            st.rerun()
+        st.session_state.selected_year_mental_tab2 = selected_year_val_tab2
+        
+        # 슬라이더 밑에 연동되는 주제 추가
+        st.subheader(f"{selected_year_val_tab2}년 정신질환별 환자수 비교")
         
         if all_conditions_summaries_list:
             all_conditions_summary_df_final = pd.concat(all_conditions_summaries_list).reset_index(drop=True)
             plot_all_conditions_yearly_comparison(all_conditions_summary_df_final, selected_year_val_tab2)
-            # 그래프 사이 선 제거
+            st.markdown("---")
             plot_pie_chart_by_year(all_conditions_summary_df_final, selected_year_val_tab2)
         else: 
             st.info("정신질환 종합 비교를 위한 데이터가 충분하지 않습니다.")
 
     with main_tab3:
-        current_selected_year_tab3 = st.session_state.selected_year_mental_tab3
-        st.subheader(f"{current_selected_year_tab3}년 {tab3_title}") 
-
         selected_year_val_tab3 = st.slider(
-            "조회 연도 선택",
+            "조회 연도 선택 (구별 분석)",
             min_value=min(available_years_for_mental_analysis),
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab3,
             step=1,
-            key="mental_year_slider_tab3_main_v4"
+            key="mental_year_slider_tab3_main" # 고유한 키
         )
-        if st.session_state.selected_year_mental_tab3 != selected_year_val_tab3:
-            st.session_state.selected_year_mental_tab3 = selected_year_val_tab3
-            st.rerun()
+        st.session_state.selected_year_mental_tab3 = selected_year_val_tab3
+        
+        # 부제목에 연도 추가
+        st.subheader(f"{selected_year_val_tab3}년 {tab3_title}") 
         
         selected_condition_tab3 = st.selectbox(
-            "분석할 질환 선택:",
+            "분석할 질환 선택 (구별):", 
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"],
-            key="mental_condition_select_tab3_final_v4"
+            key="mental_condition_select_tab3_final" # 고유한 키
         )
         
         if dataframes_by_condition and selected_condition_tab3 in dataframes_by_condition:
