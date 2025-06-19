@@ -122,28 +122,40 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     if not all(t in df_h.columns for t in types) or not all(t in df_b.columns for t in types):
         st.warning("집계 병상/병원 차트: 필요한 유형 컬럼이 데이터에 없습니다.")
     
-    total_hosp = {}
-    total_beds = {}
+    total_hosp_dict = {}
+    total_beds_dict = {}
     for t in types:
-        total_hosp[t] = pd.to_numeric(df_h.get(t, 0), errors="coerce").sum()
-        total_beds[t] = pd.to_numeric(df_b.get(t, 0), errors="coerce").sum()
+        total_hosp_dict[t] = pd.to_numeric(df_h.get(t, 0), errors="coerce").sum()
+        total_beds_dict[t] = pd.to_numeric(df_b.get(t, 0), errors="coerce").sum()
 
-    avg_beds = {}
+    avg_beds_dict = {}
     for t in types:
-        hosp_count = total_hosp.get(t, 0)
+        hosp_count = total_hosp_dict.get(t, 0)
         if hosp_count > 0:
-            avg_beds[t] = total_beds.get(t, 0) / hosp_count
+            avg_beds_dict[t] = total_beds_dict.get(t, 0) / hosp_count
         else:
-            avg_beds[t] = 0.0
+            avg_beds_dict[t] = 0.0
 
     bar_colors = {'병원 수': 'mediumseagreen', '병상 수': 'cornflowerblue', '평균 병상 수': 'lightcoral'}
+
+    # Sort data for plotting
+    sorted_total_hosp = sorted(total_hosp_dict.items(), key=lambda item: item[1], reverse=True)
+    sorted_total_hosp_keys = [item[0] for item in sorted_total_hosp]
+    sorted_total_hosp_values = [item[1] for item in sorted_total_hosp]
+
+    sorted_total_beds = sorted(total_beds_dict.items(), key=lambda item: item[1], reverse=True)
+    sorted_total_beds_keys = [item[0] for item in sorted_total_beds]
+    sorted_total_beds_values = [item[1] for item in sorted_total_beds]
+
+    sorted_avg_beds = sorted(avg_beds_dict.items(), key=lambda item: item[1], reverse=True)
+    sorted_avg_beds_keys = [item[0] for item in sorted_avg_beds]
+    sorted_avg_beds_values = [item[1] for item in sorted_avg_beds]
     
     fig_hosp, ax_hosp = plt.subplots(figsize=(8, 4.5)) 
-    ax_hosp.bar(total_hosp.keys(), total_hosp.values(), color=bar_colors['병원 수'], label='병원 수')
+    ax_hosp.bar(sorted_total_hosp_keys, sorted_total_hosp_values, color=bar_colors['병원 수'], label='병원 수')
     ax_hosp.set_title('의료기관 유형별 전체 병원 수', fontsize=15) 
     ax_hosp.set_ylabel('병원 수', fontsize=12)
     ax_hosp.set_xlabel('기관 유형', fontsize=12)
-    # 4. Rotate x-axis labels
     plt.xticks(rotation=45, ha="right", fontsize=10); plt.yticks(fontsize=10)
     ax_hosp.grid(axis='y', linestyle=':', alpha=0.6)
     ax_hosp.legend(fontsize=10, loc='upper right')
@@ -151,11 +163,10 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     st.pyplot(fig_hosp)
 
     fig_beds, ax_beds = plt.subplots(figsize=(8, 4.5))
-    ax_beds.bar(total_beds.keys(), total_beds.values(), color=bar_colors['병상 수'], label='병상 수')
+    ax_beds.bar(sorted_total_beds_keys, sorted_total_beds_values, color=bar_colors['병상 수'], label='병상 수')
     ax_beds.set_title('의료기관 유형별 전체 병상 수', fontsize=15)
     ax_beds.set_ylabel('병상 수', fontsize=12)
     ax_beds.set_xlabel('기관 유형', fontsize=12)
-    # 4. Rotate x-axis labels
     plt.xticks(rotation=45, ha="right", fontsize=10); plt.yticks(fontsize=10)
     ax_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')) 
     ax_beds.grid(axis='y', linestyle=':', alpha=0.6)
@@ -164,11 +175,10 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     st.pyplot(fig_beds)
 
     fig_avg_beds, ax_avg_beds = plt.subplots(figsize=(8, 4.5))
-    ax_avg_beds.bar(avg_beds.keys(), avg_beds.values(), color=bar_colors['평균 병상 수'], label='평균 병상 수')
+    ax_avg_beds.bar(sorted_avg_beds_keys, sorted_avg_beds_values, color=bar_colors['평균 병상 수'], label='평균 병상 수')
     ax_avg_beds.set_title('의료기관 유형별 병원당 평균 병상 수', fontsize=15)
     ax_avg_beds.set_ylabel('평균 병상 수', fontsize=12)
     ax_avg_beds.set_xlabel('기관 유형', fontsize=12)
-    # 4. Rotate x-axis labels
     plt.xticks(rotation=45, ha="right", fontsize=10); plt.yticks(fontsize=10)
     ax_avg_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.1f}')) 
     ax_avg_beds.grid(axis='y', linestyle=':', alpha=0.6)
