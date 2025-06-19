@@ -267,14 +267,27 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
 
     df_to_plot = all_years_summary_df.sort_values(by=['연도', '질환명'])
 
-    plt.figure(figsize=(18, 9)) 
+    plt.figure(figsize=(18, 9))
 
+    # 방법 1: palette 인자 완전 제거 (Seaborn 기본 동작에 맡김)
     sns.barplot(
         data=df_to_plot,
         x='질환명',
         y='총 노인 환자수',
         hue='연도'
+        # palette 인자 없음
     )
+
+    # 방법 2: (만약 방법 1이 여전히 보라색이면 시도) Seaborn의 기본 'deep' 팔레트 명시적 사용
+    # num_hues = df_to_plot['연도'].nunique() # '연도'의 고유값 개수만큼 색상 필요
+    # current_palette = sns.color_palette("deep", n_colors=num_hues) # 기본 'deep' 팔레트 사용
+    # sns.barplot(
+    #     data=df_to_plot,
+    #     x='질환명',
+    #     y='총 노인 환자수',
+    #     hue='연도',
+    #     palette=current_palette # 명시적으로 기본 팔레트 지정
+    # )
 
     plt.title('서울시 연도별/질환별 노인 환자수 비교', fontsize=16, pad=15)
     plt.xlabel('질환명', fontsize=12)
@@ -285,8 +298,9 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     ax = plt.gca()
     ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
-    plt.tight_layout(rect=[0,0,0.9,1]) 
+    plt.tight_layout(rect=[0,0,0.9,1])
     st.pyplot(plt)
+    
 # --- Welfare Facilities Charts ---
 def draw_sheet0_charts(
     df_metrics_input,
