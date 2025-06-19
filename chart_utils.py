@@ -4,8 +4,8 @@ import streamlit as st
 import altair as alt # Altair 예시 함수를 위해 유지
 import pandas as pd
 import numpy as np
-import seaborn as sns # seaborn 임포트 확인
-from matplotlib.ticker import FuncFormatter # FuncFormatter 임포트 확인
+import seaborn as sns # seaborn 임포트
+from matplotlib.ticker import FuncFormatter # FuncFormatter 임포트
 
 # ——————————————————————————————————————————————————
 # 한글 폰트 설정 (Matplotlib용)
