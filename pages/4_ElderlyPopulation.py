@@ -111,7 +111,7 @@ def plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data, selected_goryeo
     try:
         male_pop = seoul_total_goryeong_data[(selected_goryeong_year_str, '65세이상 인구', '남자', '소계')]
         female_pop = seoul_total_goryeong_data[(selected_goryeong_year_str, '65세이상 인구', '여자', '소계')]
-    except KeyError: st.warning(f"노인 성별 데이터 컬럼을 고령자현황 데이터에서 찾을 수 없습니다."); return # 연도 정보 제거
+    except KeyError: st.warning(f"노인 성별 데이터 컬럼을 고령자현황 데이터에서 찾을 수 없습니다."); return
     fig, ax = plt.subplots(figsize=(7, 7))
     pie_labels = [f'남자 ({male_pop:,}명)', f'여자 ({female_pop:,}명)']
     ax.pie([male_pop, female_pop], explode=(0, 0.05), labels=pie_labels,
@@ -264,37 +264,34 @@ def run_elderly_population_page():
     if "selected_year_elderly" not in st.session_state:
         st.session_state.selected_year_elderly = available_years_int[-1]
 
-    # 슬라이더를 메인 페이지 상단에 배치 (사이드바가 아님)
-    selected_year_int = st.slider(
+    selected_year_int = st.slider( # 메인 페이지 상단 슬라이더로 원복
         "조회 연도 선택",
         min_value=available_years_int[0],
         max_value=available_years_int[-1],
         step=1,
         value=st.session_state.selected_year_elderly, 
-        key="elderly_year_slider_main_page_top" # 다른 키 사용
+        key="elderly_year_slider_main_page_top_v2" # 키 변경
     )
-    # 슬라이더 값 변경 시 세션 상태 업데이트
     if st.session_state.selected_year_elderly != selected_year_int:
         st.session_state.selected_year_elderly = selected_year_int
-        st.rerun() # 페이지를 다시 실행하여 변경된 연도 적용
+        st.rerun()
 
     selected_year_dokgo_format = f"{selected_year_int}년"
     selected_year_goryeong_format = str(selected_year_int)
 
-    # 데이터 로드
     df_dokgo_raw_s1923 = load_csv("data/Seoul1923.csv")
-    # 파일명 변경 적용
-    elderly_population_file_path = 'data/elderly_status_20250531.csv' # 실제 사용하는 영문 파일명으로
+    
+    # 파일명 수정: 요청하신 elderly_status_20250531210628.csv 사용
+    elderly_population_file_path = 'data/elderly_status_20250531210628.csv' 
     if not os.path.exists(elderly_population_file_path):
-        st.error(f"고령자 현황 파일을 찾을 수 없습니다: {elderly_population_file_path}. 파일명을 확인해주세요.")
-        # 대체 파일 시도 또는 에러 메시지 후 종료
-        elderly_population_file_path_original = 'data/고령자현황_20250531210628.csv'
-        if os.path.exists(elderly_population_file_path_original):
-            st.warning(f"'{elderly_population_file_path}'를 찾지 못해 '{elderly_population_file_path_original}'로 대체합니다. 파일명을 영문으로 변경하는 것을 권장합니다.")
-            elderly_population_file_path = elderly_population_file_path_original
+        # 만약 변경된 이름의 파일이 없다면, 원래 이름으로 다시 시도 (자소분리 문제 대비)
+        original_elderly_file_name = 'data/고령자현황_20250531210628.csv'
+        if os.path.exists(original_elderly_file_name):
+            st.warning(f"'{elderly_population_file_path}'를 찾지 못해 '{original_elderly_file_name}'로 대체합니다. 파일명을 'elderly_status_20250531210628.csv'로 변경하는 것을 권장합니다.")
+            elderly_population_file_path = original_elderly_file_name
         else:
-            st.error("두 가지 경로 모두에서 고령자 현황 파일을 찾을 수 없습니다.")
-            return
+            st.error(f"고령자 현황 파일을 다음 경로들에서 찾을 수 없습니다: '{elderly_population_file_path}', '{original_elderly_file_name}'. 파일명을 확인해주세요.")
+            return # 파일이 없으면 여기서 중단
             
     df_goryeong_raw_page = load_csv(elderly_population_file_path, header_config=[0,1,2,3]) 
     
