@@ -274,7 +274,7 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
         x='질환명',
         y='총 노인 환자수',
         hue='연도'
-        # palette='viridis' # 색상 팔레트 지정 제거 (기본 색상 사용)
+        palette='Set2' # 색상 팔레트 지정 제거 (기본 색상 사용)
     )
 
     plt.title('서울시 연도별/질환별 노인 환자수 비교', fontsize=16, pad=15)
