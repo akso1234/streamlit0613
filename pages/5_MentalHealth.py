@@ -12,59 +12,46 @@ from chart_utils import (
     plot_all_conditions_yearly_comparison,
     plot_pie_chart_by_year,
     plot_sigungu_mental_patients_by_condition_year,
-    plot_all_conditions_trend_lineplot,       # 이 함수가 chart_utils.py에 정의되어 있어야 함
-    plot_elderly_population_ratio_trend_lineplot, # 이 함수가 chart_utils.py에 정의되어 있어야 함
-    plot_sigungu_mental_patients_ratio_by_condition_year, # 이 함수가 chart_utils.py에 정의되어 있어야 함
-    plot_grouped_bar_all_conditions_yearly # <<< 새로 추가된 함수 임포트
+    plot_all_conditions_trend_lineplot,
+    plot_elderly_population_ratio_trend_lineplot,
+    plot_sigungu_mental_patients_ratio_by_condition_year,
+    plot_grouped_bar_all_conditions_yearly # 이 함수가 chart_utils.py에 정의되어 있어야 함
 )
 
+# --- 데이터 처리 함수들 (이전 답변과 동일하게 유지) ---
 @st.cache_data
 def preprocess_mental_health_data_cached(file_path, condition_name):
     try:
         df_header_info = pd.read_csv(file_path, encoding='utf-8-sig', header=None, nrows=5)
-        if df_header_info.shape[0] < 5:
-            return pd.DataFrame()
-        header_year_row = df_header_info.iloc[3]
-        header_metric_row = df_header_info.iloc[4]
+        if df_header_info.shape[0] < 5: return pd.DataFrame()
+        header_year_row = df_header_info.iloc[3]; header_metric_row = df_header_info.iloc[4]
         df_data_part = pd.read_csv(file_path, encoding='utf-8-sig', header=None, skiprows=5)
-        if df_data_part.empty:
-            return pd.DataFrame()
+        if df_data_part.empty: return pd.DataFrame()
     except FileNotFoundError:
-        st.error(f"파일을 찾을 수 없습니다: {file_path}")
-        return pd.DataFrame()
+        st.error(f"파일을 찾을 수 없습니다: {file_path}"); return pd.DataFrame()
     except Exception as e:
-        st.error(f"'{os.path.basename(file_path)}' 파일 읽기 중 오류: {e}")
-        return pd.DataFrame()
-
-    base_cols = ['시도', '시군구', '성별', '연령구분']
-    num_base_cols = len(base_cols)
-    year_metric_cols = []
-    current_year_header = ""
-    
+        st.error(f"'{os.path.basename(file_path)}' 파일 읽기 중 오류: {e}"); return pd.DataFrame()
+    base_cols = ['시도', '시군구', '성별', '연령구분']; num_base_cols = len(base_cols)
+    year_metric_cols = []; current_year_header = ""
     num_header_cols = min(len(header_year_row), len(header_metric_row))
     actual_data_metric_cols = df_data_part.shape[1] - num_base_cols
     cols_to_generate_names_for = min(num_header_cols - num_base_cols, actual_data_metric_cols)
-
     for i_offset in range(cols_to_generate_names_for):
         i = num_base_cols + i_offset
-        year_val_raw = header_year_row[i]
-        metric_val_raw = header_metric_row[i]
+        year_val_raw = header_year_row[i]; metric_val_raw = header_metric_row[i]
         year_val = str(year_val_raw).strip() if pd.notna(year_val_raw) else ""
         metric_val = str(metric_val_raw).strip() if pd.notna(metric_val_raw) else ""
         if '년' in year_val: current_year_header = year_val.replace(" ", "")
         if current_year_header and metric_val: year_metric_cols.append(f"{current_year_header}_{metric_val}")
         elif metric_val : year_metric_cols.append(f"_{metric_val}") 
         else: year_metric_cols.append(f"Unnamed_col_{i}")
-
     if len(year_metric_cols) != actual_data_metric_cols:
         if len(year_metric_cols) > actual_data_metric_cols:
             year_metric_cols = year_metric_cols[:actual_data_metric_cols]
         else: 
              year_metric_cols.extend([f"Unnamed_ext_{j}" for j in range(actual_data_metric_cols - len(year_metric_cols))])
-
     df_data_part = df_data_part.iloc[:, :num_base_cols + len(year_metric_cols)]
     df_data_part.columns = base_cols + year_metric_cols
-    
     value_columns_pattern = ['환자수', '요양급여비용', '입내원일수']
     columns_to_clean = [col for col in df_data_part.columns if any(pat in str(col) for pat in value_columns_pattern)]
     for col in columns_to_clean:
@@ -159,12 +146,8 @@ def load_and_preprocess_elderly_population_data(file_path):
     try:
         df_multi_temp = pd.DataFrame(df_population_data_rows.values, columns=pd.MultiIndex.from_tuples(multi_index_cols))
     except Exception as e:
-        # st.error(f"MultiIndex 컬럼명 생성 후 DataFrame 변환 중 오류: {e}") # UI에 직접 메시지 표시하지 않도록 변경
         print(f"ERROR: MultiIndex 컬럼명 생성 후 DataFrame 변환 중 오류: {e}")
-        print(f"생성 시도된 컬럼: {multi_index_cols}")
-        print(f"데이터 shape: {df_population_data_rows.shape}")
         return pd.DataFrame(), pd.DataFrame()
-
 
     seoul_total_pop_data_list = []
     key_level0_col0 = df_multi_temp.columns[0]
@@ -207,8 +190,7 @@ def calculate_seoul_total_mental_health_ratios(combined_year_df, seoul_total_eld
         return pd.DataFrame()
     df_merged_ratio_seoul_total = pd.merge(combined_year_df, seoul_total_elderly_pop_final, on='연도', how='left')
     if '총_65세_이상_노인인구' not in df_merged_ratio_seoul_total.columns:
-        # st.warning("서울시 전체 노인 인구 데이터 병합에 실패했습니다. ('총_65세_이상_노인인구' 컬럼 없음)") # UI 경고 최소화
-        return pd.DataFrame()
+        return pd.DataFrame() 
         
     df_merged_ratio_seoul_total['총 서울 노인 인구'] = pd.to_numeric(df_merged_ratio_seoul_total['총_65세_이상_노인인구'], errors='coerce').fillna(0)
     df_merged_ratio_seoul_total['총 노인 환자수'] = pd.to_numeric(df_merged_ratio_seoul_total['총 노인 환자수'], errors='coerce').fillna(0)
@@ -230,7 +212,6 @@ def calculate_sigungu_mental_health_ratios(df_sigungu_mental_total_patients, df_
         how='left'
     )
     if '총_65세_이상_노인인구' not in df_sigungu_ratio_final.columns:
-        # st.warning("구별 전체 노인 인구 데이터 병합에 실패했습니다. ('총_65세_이상_노인인구' 컬럼 없음)")
         df_sigungu_ratio_final['분모_전체_노인인구'] = 0 
     else:
         df_sigungu_ratio_final.rename(columns={'총_65세_이상_노인인구': '분모_전체_노인인구'}, inplace=True)
@@ -261,21 +242,23 @@ def run_mental_health_page():
         "조울증": "data/지역별 조울증 진료현황(2019년~2023년).csv",
         "조현병": "data/지역별 조현병 진료현황(2019년~2023년).csv"
     }
-    elderly_population_file_path = 'data/elderly_status_20250531210628.csv' # 파일명 확인 필요 (자소분리)
+    # 실제 파일명으로 수정 (예시)
+    elderly_population_file_path = 'data/elderly_status_20250531.csv' # 예시 파일명, 실제 사용하는 파일명으로 변경하세요.
     
     elderly_age_groups_mental = ['60~69세', '70~79세', '80~89세', '90~99세', '100세 이상']
     available_years_for_mental_analysis = [2019, 2020, 2021, 2022, 2023]
 
-    if "selected_year_mental_overall_v3" not in st.session_state:
+    if "selected_year_mental_overall_v3" not in st.session_state: # main_tab2용
         st.session_state.selected_year_mental_overall_v3 = available_years_for_mental_analysis[-1]
-    if "selected_year_mental_sigungu_count_v3" not in st.session_state:
+    if "selected_year_mental_sigungu_count_v3" not in st.session_state: # main_tab3용
         st.session_state.selected_year_mental_sigungu_count_v3 = available_years_for_mental_analysis[-1]
-    if "selected_year_mental_sigungu_ratio_v3" not in st.session_state:
+    if "selected_year_mental_sigungu_ratio_v3" not in st.session_state: # main_tab5용
         st.session_state.selected_year_mental_sigungu_ratio_v3 = available_years_for_mental_analysis[-1]
+    # 새 탭(main_tab6)은 연도 선택 슬라이더가 없으므로 세션 상태 불필요
 
 
     dataframes_by_condition = {}
-    all_conditions_summaries_list = []
+    all_conditions_summaries_list = [] 
     at_least_one_mental_file_loaded = False
 
     for condition_key, file_path_value in file_paths_mental_health.items():
@@ -297,7 +280,7 @@ def run_mental_health_page():
 
     df_seoul_total_elderly_pop, df_sigungu_total_elderly_pop = load_and_preprocess_elderly_population_data(elderly_population_file_path)
 
-    combined_year_df_for_seoul = pd.DataFrame()
+    combined_year_df_for_seoul = pd.DataFrame() # 새 탭에서 사용할 데이터
     if all_conditions_summaries_list:
         combined_year_df_for_seoul = pd.concat(all_conditions_summaries_list).reset_index(drop=True)
     
@@ -320,12 +303,12 @@ def run_mental_health_page():
     tab_titles = [
         "개별 질환 분석", 
         "서울시 전체 종합 비교",
-        "자치구별 환자 수", # 이전 "구별 환자 수"
+        "자치구별 환자 수",
         "서울시 전체 비율 분석", 
         "자치구별 환자 비율 분석",
-        "서울시 연도별/질환별 환자수 비교" # <<< 새로운 탭
+        "서울시 연도별/질환별 환자수 비교" # 새 탭 제목
     ]
-    main_tab1, main_tab2, main_tab3, main_tab4, main_tab5, main_tab6 = st.tabs(tab_titles) # 탭 변수 하나 추가
+    main_tab1, main_tab2, main_tab3, main_tab4, main_tab5, main_tab6 = st.tabs(tab_titles)
 
     with main_tab1:
         st.subheader(tab_titles[0])
@@ -335,7 +318,7 @@ def run_mental_health_page():
         selected_condition_name_tab1 = st.selectbox(
             "분석할 질환을 선택하세요:", 
             selectbox_options_tab1, 
-            key="mental_condition_select_tab1_page5_v7"
+            key="mental_condition_select_tab1_page5_v8"
         )
         if selected_condition_name_tab1 != "데이터 없음" and dataframes_by_condition and selected_condition_name_tab1 in dataframes_by_condition:
             df_to_analyze = dataframes_by_condition[selected_condition_name_tab1]
@@ -351,37 +334,42 @@ def run_mental_health_page():
         elif selected_condition_name_tab1 != "데이터 없음": st.info(f"'{selected_condition_name_tab1}'에 대한 데이터를 찾을 수 없습니다.")
 
     with main_tab2: 
-        st.subheader(tab_titles[1]) 
+        # 요청사항 1: 주제를 슬라이더 위로
+        current_selected_year_tab2 = st.session_state.selected_year_mental_overall_v3
+        st.subheader(f"{current_selected_year_tab2}년 {tab_titles[1]}") # 부제목에 연도 포함
+
+        # 요청사항 3: 슬라이더 레이블 수정
         selected_year_val_tab2 = st.slider(
             "조회 연도 선택", 
             min_value=min(available_years_for_mental_analysis), 
             max_value=max(available_years_for_mental_analysis),
-            value=st.session_state.selected_year_mental_overall_v3, # 세션 키 업데이트
+            value=st.session_state.selected_year_mental_overall_v3, 
             step=1,
-            key="mental_year_slider_overall_page5_v6"
+            key="mental_year_slider_overall_page5_v7"
         )
         if st.session_state.selected_year_mental_overall_v3 != selected_year_val_tab2:
             st.session_state.selected_year_mental_overall_v3 = selected_year_val_tab2
             st.rerun()
         
-        st.markdown(f"#### {selected_year_val_tab2}년 정신질환별 환자수 비교")
         if not combined_year_df_for_seoul.empty:
+            # 요청사항 4: 그래프 소주제 제거 (chart_utils에서 제목만 표시)
             plot_all_conditions_yearly_comparison(combined_year_df_for_seoul, selected_year_val_tab2)
+            # 요청사항 2: 그래프 사이 선 제거 (st.markdown 호출 안 함)
             plot_pie_chart_by_year(combined_year_df_for_seoul, selected_year_val_tab2)
         else: 
             st.info("정신질환 종합 비교를 위한 데이터가 충분하지 않습니다.")
 
     with main_tab3:
-        current_selected_year_tab3 = st.session_state.selected_year_mental_sigungu_count_v3 # 세션 키 업데이트
+        current_selected_year_tab3 = st.session_state.selected_year_mental_sigungu_count_v3
         st.subheader(f"{current_selected_year_tab3}년 {tab_titles[2]}") 
 
         selected_year_val_tab3 = st.slider(
             "조회 연도 선택  ", 
             min_value=min(available_years_for_mental_analysis),
             max_value=max(available_years_for_mental_analysis),
-            value=st.session_state.selected_year_mental_sigungu_count_v3, # 세션 키 업데이트
+            value=st.session_state.selected_year_mental_sigungu_count_v3,
             step=1,
-            key="mental_year_slider_sigungu_count_page5_v6"
+            key="mental_year_slider_sigungu_count_page5_v7"
         )
         if st.session_state.selected_year_mental_sigungu_count_v3 != selected_year_val_tab3:
             st.session_state.selected_year_mental_sigungu_count_v3 = selected_year_val_tab3
@@ -393,7 +381,7 @@ def run_mental_health_page():
         selected_condition_tab3 = st.selectbox(
             "분석할 질환 선택 ", 
             selectbox_options_tab3,
-            key="mental_condition_select_sigungu_count_page5_v6"
+            key="mental_condition_select_sigungu_count_page5_v7"
         )
         
         if selected_condition_tab3 != "데이터 없음" and dataframes_by_condition and selected_condition_tab3 in dataframes_by_condition:
@@ -423,16 +411,16 @@ def run_mental_health_page():
             st.info("서울시 전체 노인 인구 대비 환자 비율 추이 데이터를 계산하거나 표시할 수 없습니다.")
 
     with main_tab5: 
-        current_selected_year_sigungu_ratio = st.session_state.selected_year_mental_sigungu_ratio_v3 # 세션 키 업데이트
+        current_selected_year_sigungu_ratio = st.session_state.selected_year_mental_sigungu_ratio_v3
         st.subheader(f"{current_selected_year_sigungu_ratio}년 {tab_titles[4]}")
 
         selected_year_sigungu_ratio_val = st.slider(
             "조회 연도 선택   ", 
             min_value=min(available_years_for_mental_analysis),
             max_value=max(available_years_for_mental_analysis),
-            value=st.session_state.selected_year_mental_sigungu_ratio_v3, # 세션 키 업데이트
+            value=st.session_state.selected_year_mental_sigungu_ratio_v3,
             step=1,
-            key="mental_year_slider_sigungu_ratio_page5_v7"
+            key="mental_year_slider_sigungu_ratio_page5_v8"
         )
         if st.session_state.selected_year_mental_sigungu_ratio_v3 != selected_year_sigungu_ratio_val:
             st.session_state.selected_year_mental_sigungu_ratio_v3 = selected_year_sigungu_ratio_val
@@ -444,12 +432,12 @@ def run_mental_health_page():
         selected_condition_sigungu_ratio = st.selectbox(
             "분석할 질환 선택   ", 
             selectbox_options_tab5,
-            key="mental_condition_select_sigungu_ratio_page5_v7"
+            key="mental_condition_select_sigungu_ratio_page5_v8"
         )
 
         if selected_condition_sigungu_ratio != "데이터 없음" and dataframes_by_condition and selected_condition_sigungu_ratio in dataframes_by_condition:
             if not df_sigungu_ratio_final_data.empty:
-                plot_sigungu_mental_patients_ratio_by_condition_year( 
+                plot_sigungu_mental_patients_ratio_by_condition_year(
                     df_sigungu_ratio_final_data,
                     selected_condition_sigungu_ratio,
                     selected_year_sigungu_ratio_val
@@ -461,7 +449,7 @@ def run_mental_health_page():
         elif selected_condition_sigungu_ratio != "데이터 없음":
             st.info(f"'{selected_condition_sigungu_ratio}'에 대한 데이터를 찾을 수 없습니다.")
             
-    with main_tab6: # <<< 새로운 탭 로직 추가
+    with main_tab6: # <<< 새 탭 추가
         st.subheader(tab_titles[5])
         if not combined_year_df_for_seoul.empty:
             plot_grouped_bar_all_conditions_yearly(combined_year_df_for_seoul)
