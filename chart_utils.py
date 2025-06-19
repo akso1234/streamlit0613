@@ -260,6 +260,35 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
     st.pyplot(fig)
     return df_avg
 
+def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
+    if all_years_summary_df is None or all_years_summary_df.empty:
+        st.info("연도별/질환별 환자수 비교를 위한 데이터가 없습니다.")
+        return
+
+    df_to_plot = all_years_summary_df.sort_values(by=['연도', '질환명'])
+
+    plt.figure(figsize=(18, 9)) 
+
+    sns.barplot(
+        data=df_to_plot,
+        x='질환명',
+        y='총 노인 환자수',
+        hue='연도' # 연도별로 다른 색상으로 그룹화
+        # palette='viridis' # 색상 팔레트 지정 제거 (기본 색상 사용)
+    )
+
+    plt.title('서울시 연도별/질환별 노인 환자수 비교', fontsize=16, pad=15)
+    plt.xlabel('질환명', fontsize=12)
+    plt.ylabel('총 노인 환자수 (명)', fontsize=12)
+    plt.xticks(rotation=45, ha='right', fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.legend(title='연도', bbox_to_anchor=(1.02, 1), loc='upper left', title_fontsize='11', fontsize='10')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
+    plt.tight_layout(rect=[0,0,0.9,1]) 
+    st.pyplot(plt)
+
 
 # --- Welfare Facilities Charts ---
 def draw_sheet0_charts(
