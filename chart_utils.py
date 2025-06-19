@@ -115,7 +115,7 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
         else:
             avg_beds_dict[t] = 0.0
 
-    bar_colors = {'병원 수': 'mediumseagreen', '병상 수': 'cornflowerblue', '평균 병상 수': 'lightcoral'}
+    bar_colors = {'병원 수 (개)': 'mediumseagreen', '병상 수 (개)': 'cornflowerblue', '평균 병상 수 (개)': 'lightcoral'}
 
     sorted_total_hosp = sorted(total_hosp_dict.items(), key=lambda item: item[1], reverse=True)
     sorted_total_hosp_keys = [item[0] for item in sorted_total_hosp]
