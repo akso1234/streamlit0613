@@ -19,10 +19,11 @@ def draw_example_bar_chart(df: pd.DataFrame):
     예시: Matplotlib으로 수평 막대그래프 그리기
     """
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.barh(df["영역"], df["값"])
+    ax.barh(df["영역"], df["값"], label="값")
     ax.set_xlabel("값(단위)")
     ax.set_ylabel("영역")
     ax.set_title("예시 수평 막대그래프")
+    ax.legend(fontsize=10, loc='upper right')
     st.pyplot(fig)
 
 
@@ -71,7 +72,7 @@ def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
         df_plot[inst] = pd.to_numeric(df_plot[inst], errors="coerce").fillna(0)
 
         fig, ax = plt.subplots(figsize=(12, 5)) 
-        bars = ax.bar(df_plot["gu"], df_plot[inst], color='skyblue') 
+        bars = ax.bar(df_plot["gu"], df_plot[inst], color='skyblue', label=inst) 
         ax.set_title(f"서울시 자치구별 {inst} 수", fontsize=15) 
         ax.set_xlabel("자치구", fontsize=12)
         ax.set_ylabel("기관 수", fontsize=12)
@@ -88,7 +89,8 @@ def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
         
         if not df_plot[inst].empty and df_plot[inst].max() > 0 :
              ax.set_ylim(0, df_plot[inst].max() * 1.15)
-
+        
+        ax.legend(fontsize=10, loc='upper right')
         plt.tight_layout() 
         st.pyplot(fig)
 
@@ -126,34 +128,37 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     bar_colors = {'병원 수': 'mediumseagreen', '병상 수': 'cornflowerblue', '평균 병상 수': 'lightcoral'}
     
     fig_hosp, ax_hosp = plt.subplots(figsize=(8, 4.5)) 
-    ax_hosp.bar(total_hosp.keys(), total_hosp.values(), color=bar_colors['병원 수'])
+    ax_hosp.bar(total_hosp.keys(), total_hosp.values(), color=bar_colors['병원 수'], label='병원 수')
     ax_hosp.set_title('의료기관 유형별 전체 병원 수', fontsize=15) 
     ax_hosp.set_ylabel('병원 수', fontsize=12)
     ax_hosp.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(fontsize=10); plt.yticks(fontsize=10)
     ax_hosp.grid(axis='y', linestyle=':', alpha=0.6)
+    ax_hosp.legend(fontsize=10, loc='upper right')
     plt.tight_layout()
     st.pyplot(fig_hosp)
 
     fig_beds, ax_beds = plt.subplots(figsize=(8, 4.5))
-    ax_beds.bar(total_beds.keys(), total_beds.values(), color=bar_colors['병상 수'])
+    ax_beds.bar(total_beds.keys(), total_beds.values(), color=bar_colors['병상 수'], label='병상 수')
     ax_beds.set_title('의료기관 유형별 전체 병상 수', fontsize=15)
     ax_beds.set_ylabel('병상 수', fontsize=12)
     ax_beds.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(fontsize=10); plt.yticks(fontsize=10)
     ax_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')) 
     ax_beds.grid(axis='y', linestyle=':', alpha=0.6)
+    ax_beds.legend(fontsize=10, loc='upper right')
     plt.tight_layout()
     st.pyplot(fig_beds)
 
     fig_avg_beds, ax_avg_beds = plt.subplots(figsize=(8, 4.5))
-    ax_avg_beds.bar(avg_beds.keys(), avg_beds.values(), color=bar_colors['평균 병상 수'])
+    ax_avg_beds.bar(avg_beds.keys(), avg_beds.values(), color=bar_colors['평균 병상 수'], label='평균 병상 수')
     ax_avg_beds.set_title('의료기관 유형별 병원당 평균 병상 수', fontsize=15)
     ax_avg_beds.set_ylabel('평균 병상 수', fontsize=12)
     ax_avg_beds.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(fontsize=10); plt.yticks(fontsize=10)
     ax_avg_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.1f}')) 
     ax_avg_beds.grid(axis='y', linestyle=':', alpha=0.6)
+    ax_avg_beds.legend(fontsize=10, loc='upper right')
     plt.tight_layout()
     st.pyplot(fig_avg_beds)
 
