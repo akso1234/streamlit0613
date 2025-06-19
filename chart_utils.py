@@ -822,7 +822,7 @@ def plot_sigungu_mental_patients_by_condition_year(df_sigungu_mental_total, sele
 
     fig, ax = plt.subplots(figsize=(20, 10))
     sns.barplot(data=df_plot, x='시군구', y='질환별_노인_환자수_총합', color='lightcoral', ax=ax, label=f'{selected_condition} 환자수')
-    ax.set_title(f'서울시 구별 <{selected_condition}> 노인 환자 수', fontsize=16)
+    ax.set_title(f'서울시 자치구별 {selected_condition} 노인 환자 수', fontsize=16)
     ax.set_xlabel('자치구', fontsize=14)
     ax.set_ylabel(f'{selected_condition} 노인 환자 수 (명)', fontsize=14)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=10)
@@ -901,7 +901,7 @@ def plot_sigungu_mental_patients_ratio_by_condition_year(df_sigungu_ratio_data, 
 
     fig, ax = plt.subplots(figsize=(20, 10))
     sns.barplot(data=df_plot, x='시군구', y=ratio_col_name, color='mediumpurple', ax=ax, label=f'{selected_condition} 환자 비율(%)')
-    ax.set_title(f'서울시 구별 <{selected_condition}> 노인 환자 비율 (전체 노인 인구 대비)', fontsize=16)
+    ax.set_title(f'서울시 자치구별 {selected_condition} 노인 환자 비율', fontsize=16)
     ax.set_xlabel('자치구', fontsize=14)
     ax.set_ylabel(f'{selected_condition} 환자 비율 (%)', fontsize=14)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=10)
