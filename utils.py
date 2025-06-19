@@ -1,193 +1,185 @@
-# --- START OF utils.py ---
+# 2_WelfareFacilities.py (또는 2_Welfare.py) 파일 상단
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-import os
-import json
-import requests
-import io
+import sys # sys 모듈 임포트
+import os # os 모듈 임포트
 
-def set_korean_font():
-    """
-    Matplotlib에서 한글 사용을 위한 설정을 수행합니다.
-    리포지토리에 포함된 폰트 파일을 직접 사용합니다.
-    """
-    font_found = False
-    font_to_set = 'sans-serif' 
+# 현재 파일의 디렉토리 기준으로 부모 디렉토리를 sys.path에 추가
+# __file__은 현재 스크립트의 경로를 나타냅니다.
+current_file_path = os.path.abspath(__file__)
+# 현재 파일이 있는 디렉토리 (예: /mount/src/streamlit0613/pages)
+current_dir = os.path.dirname(current_file_path)
+# 부모 디렉토리 (예: /mount/src/streamlit0613)
+parent_dir = os.path.dirname(current_dir)
 
-    font_filename_in_repo = "NanumGothic.ttf" 
-    font_path_in_repo = font_filename_in_repo
-    # 만약 'assets/fonts/' 폴더 안에 있다면 아래 주석을 해제하고 위 라인을 주석 처리:
-    # font_path_in_repo = os.path.join("assets", "fonts", font_filename_in_repo)
+# sys.path에 부모 디렉토리가 없다면 추가
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
 
-    current_working_dir = os.getcwd()
-    absolute_font_path = os.path.join(current_working_dir, font_path_in_repo)
+# 이제 부모 디렉토리에 있는 모듈들을 임포트할 수 있습니다.
+from utils import load_csv, load_excel_sheets, set_korean_font # 유틸리티 함수 로드
+from data_processing import ( # 데이터 처리 함수 로드
+    extract_sheet0_metrics, extract_sheet1_metrics,
+    extract_nursing_csv_metrics, extract_sheet3_metrics,
+    extract_sheet4_metrics, extract_sheet5_metrics
+)
+from chart_utils import ( # 차트 생성 함수 로드
+    draw_sheet0_charts, draw_sheet1_charts,
+    draw_nursing_csv_charts, draw_sheet3_charts,
+    draw_sheet4_charts, draw_sheet5_charts
+)
+import pandas as pd # pandas 직접 사용이 필요한 경우
 
-    if os.path.exists(absolute_font_path):
-        try:
-            fm.fontManager.addfont(absolute_font_path)
-            # fm._rebuild() # 일반적으로 addfont 후에는 필요 없을 수 있으며, 시작 시간 지연 가능
+# ... 나머지 코드는 동일 ...
 
-            font_prop = fm.FontProperties(fname=absolute_font_path)
-            font_name_from_file = font_prop.get_name()
-            
-            plt.rcParams['font.family'] = font_name_from_file
-            
-            if plt.rcParams['font.family'] and plt.rcParams['font.family'][0] == font_name_from_file:
-                font_found = True
-                font_to_set = font_name_from_file
-        except Exception:
-            font_found = False # 오류 발생 시 명시적으로 False
-            pass # 오류 발생 시 조용히 넘어감 (이미 로컬 폴백 로직이 있음)
+def run_welfare_facilities_page():
+    set_korean_font() # 한글 폰트 설정
+    st.title("🧓 서울시 노인 복지시설 현황")
 
-    if not font_found:
-        # 로컬 환경 폴백 (Streamlit Cloud에서는 위 로직이 성공해야 함)
-        preferred_system_fonts = ['NanumGothic', 'Malgun Gothic', 'AppleGothic', 'sans-serif']
-        for sys_font_name in preferred_system_fonts:
-            try:
-                plt.rcParams['font.family'] = sys_font_name
-                if plt.rcParams['font.family'][0] == sys_font_name: 
-                    font_found = True 
-                    font_to_set = sys_font_name
-                    break 
-            except:
-                continue
-        if not font_found:
-             plt.rcParams['font.family'] = 'sans-serif'
-             font_to_set = 'sans-serif'
+    # --- 데이터 로드 ---
+    excel_file_path = "data/서울시_노인복지시설.xlsx"
+    csv_file_path = "data/서울시_노인여가복지시설(경로당, 노인교실, 노인복지관)_현황.csv"
+
+    # 엑셀 파일 로드 (모든 시트)
+    all_sheets_data = load_excel_sheets(excel_file_path)
+    # CSV 파일 로드
+    csv_data = load_csv(csv_file_path)
+
+    # --- 연도 선택 슬라이더 ---
+    available_years = [2020, 2021, 2022, 2023] # 사용 가능한 연도 목록
+    if "selected_year_welfare" not in st.session_state:
+        st.session_state.selected_year_welfare = available_years[-1] # 기본값: 가장 최근 연도
+
+    selected_year = st.sidebar.slider(
+        "조회 연도 선택",
+        min_value=min(available_years),
+        max_value=max(available_years),
+        value=st.session_state.selected_year_welfare,
+        step=1,
+        key="welfare_year_slider"
+    )
+    st.session_state.selected_year_welfare = selected_year
+    st.sidebar.info(f"선택된 연도: **{selected_year}년**")
+
+
+    # --- 데이터 처리 ---
+    # 각 시트 및 CSV 데이터에 대해 연도별 데이터 추출
+    df_sheet0 = extract_sheet0_metrics(all_sheets_data.get('0.노인주거복지시설'), selected_year)
+    df_sheet1 = extract_sheet1_metrics(all_sheets_data.get('1.노인의료복지시설'), selected_year)
     
-    final_font_family_list_check = plt.rcParams.get('font.family', ['Unknown'])
-    final_font_family_check = final_font_family_list_check[0] if final_font_family_list_check else 'Unknown'
-    
-    expected_korean_font_names_lower_check = ['nanumgothic', 'nanumbarungothic', 'nanumsquare', 'nanummyeongjo', 'malgun gothic', 'applegothic', 'apple sd gothic neo']
-    
-    is_korean_font_actually_set = any(expected_name in final_font_family_check.lower() for expected_name in expected_korean_font_names_lower_check)
+    # 여가복지시설(CSV) 데이터 처리
+    df_welf_csv, df_centers_csv = extract_nursing_csv_metrics(csv_data, selected_year)
 
-    if not is_korean_font_actually_set:
-        if st.runtime.exists():
-            st.sidebar.warning(
-                 f"한글 폰트 자동 설정에 실패하여 기본 폰트('{final_font_family_check}')가 사용될 수 있습니다. "
-                 "그래프의 한글이 깨질 경우, GitHub 리포지토리에 'NanumGothic.ttf'와 같은 한글 폰트 파일을 올바르게 추가했는지 확인해주세요."
-            )
-    plt.rcParams['axes.unicode_minus'] = False
-
-@st.cache_data
-def load_csv(
-    file_path, 
-    encoding=None, # encoding 인자 추가
-    encoding_options=['utf-8-sig', 'utf-8', 'cp949', 'euc-kr'], 
-    header_config=None, 
-    skiprows_config=None, 
-    nrows_config=None, 
-    na_values_config=None,
-    sep_config=','
-):
-    full_path = file_path
-    
-    if not os.path.exists(full_path):
-        # st.error(f"데이터 파일을 찾을 수 없습니다: {full_path}") # 이전 코드에서는 st.error 사용
-        print(f"데이터 파일을 찾을 수 없습니다: {full_path}") # Streamlit UI 요소 대신 print 사용 (st.cache_data 내부 디버깅용)
-        return None
-
-    encodings_to_try = []
-    if encoding: # 명시적으로 encoding이 제공된 경우
-        encodings_to_try.append(encoding)
-    encodings_to_try.extend(enc for enc in encoding_options if enc != encoding) # 나머지 옵션 추가 (중복 방지)
+    df_sheet3 = extract_sheet3_metrics(all_sheets_data.get('3.재가노인복지시설'), selected_year)
+    df_sheet4 = extract_sheet4_metrics(all_sheets_data.get('4.노인일자리지원기관'), selected_year)
+    df_sheet5 = extract_sheet5_metrics(all_sheets_data.get('5.치매전담형 장기요양기관'), selected_year)
 
 
-    for enc in encodings_to_try:
-        try:
-            read_options = {'encoding': enc, 'sep': sep_config}
-            if header_config is not None:
-                read_options['header'] = header_config
-            if skiprows_config is not None:
-                read_options['skiprows'] = skiprows_config
-            if nrows_config is not None:
-                read_options['nrows'] = nrows_config
-            if na_values_config is not None:
-                read_options['na_values'] = na_values_config
-            
-            # print(f"Attempting to load {full_path} with encoding: {enc}, options: {read_options}") # 디버깅 로그
-            df = pd.read_csv(full_path, **read_options)
-            # print(f"Successfully loaded {full_path} with encoding: {enc}") # 디버깅 로그
-            return df
-        except UnicodeDecodeError:
-            # print(f"UnicodeDecodeError with encoding: {enc} for file: {full_path}") # 디버깅 로그
-            continue
-        except Exception as e:
-            # st.warning(f"'{os.path.basename(full_path)}' 파일 로드 중 오류 발생 (인코딩: {enc}): {e}")
-            print(f"'{os.path.basename(full_path)}' 파일 로드 중 오류 발생 (인코딩: {enc}): {e}")
-            return None # 다른 심각한 오류 발생 시 None 반환
-            
-    # st.error(f"'{os.path.basename(full_path)}' 파일 로드 실패. 지원되는 인코딩을 찾을 수 없습니다.")
-    print(f"'{os.path.basename(full_path)}' 파일 로드 실패. 지원되는 인코딩을 찾을 수 없습니다.")
-    return None
+    # --- 탭 구성 ---
+    tab_titles = [
+        "주거복지시설", "의료복지시설", "여가복지시설(CSV)",
+        "재가노인복지시설", "노인일자리지원기관", "치매전담형장기요양"
+    ]
+    tabs = st.tabs(tab_titles)
 
-@st.cache_data
-def load_geojson(path_or_url):
-    try:
-        if path_or_url.startswith('http'):
-            response = requests.get(path_or_url)
-            response.raise_for_status()
-            return response.json()
+    with tabs[0]:
+        st.subheader(f"{selected_year}년 노인주거복지시설 현황")
+        if df_sheet0 is not None and not df_sheet0.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원·추가 수용 가능 인원")
+            draw_sheet0_charts(df_sheet0)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet0.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet0.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
         else:
-            full_path = path_or_url
-            if not os.path.exists(full_path):
-                st.error(f"GeoJSON 파일을 찾을 수 없습니다: {full_path}")
-                return None
-            with open(full_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except requests.exceptions.RequestException as e:
-        st.error(f"GeoJSON URL에서 데이터 로드 중 오류: {e}")
-        return None
-    except FileNotFoundError:
-        st.error(f"GeoJSON 파일을 찾을 수 없습니다: {path_or_url}")
-        return None
-    except json.JSONDecodeError as e:
-        st.error(f"GeoJSON 파일 파싱 중 오류: {e}")
-        return None
-    except Exception as e:
-        st.error(f"GeoJSON 로드 중 예기치 않은 오류 발생: {e}")
-        return None
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '0.노인주거복지시설'이 없습니다.")
 
-@st.cache_data
-def load_csv_from_upload(
-    _uploaded_file_object,
-    encoding=None, # encoding 인자 추가
-    encoding_options=['utf-8-sig', 'utf-8', 'cp949', 'euc-kr'], 
-    header_config=None, 
-    skiprows_config=None, 
-    na_values_config=None,
-    sep_config=','
-):
-    if _uploaded_file_object is None:
-        return None
+    with tabs[1]:
+        st.subheader(f"{selected_year}년 노인의료복지시설 현황")
+        if df_sheet1 is not None and not df_sheet1.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원·추가 수용 가능 인원")
+            draw_sheet1_charts(df_sheet1)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet1.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet1.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '1.노인의료복지시설'이 없습니다.")
+
+    with tabs[2]:
+        st.subheader(f"{selected_year}년 노인여가복지시설(CSV) 현황")
+        display_welf = False
+        if df_welf_csv is not None and not df_welf_csv.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 노인복지관 현황")
+            # draw_nursing_csv_charts 핸들러는 내부적으로 df_welf_csv와 df_centers_csv를 모두 받음
+            # 여기서는 노인복지관 부분만 명시적으로 언급
+            display_welf = True
+        else:
+            st.info(f"{selected_year}년 노인복지관(CSV) 데이터를 찾을 수 없습니다.")
+
+        display_centers = False
+        if df_centers_csv is not None and not df_centers_csv.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 경로당 및 노인교실 현황")
+            # draw_nursing_csv_charts 핸들러는 내부적으로 df_welf_csv와 df_centers_csv를 모두 받음
+            # 여기서는 경로당/노인교실 부분만 명시적으로 언급
+            display_centers = True
+        else:
+            st.info(f"{selected_year}년 경로당 및 노인교실(CSV) 데이터를 찾을 수 없습니다.")
         
-    uploaded_file_object = _uploaded_file_object 
-    
-    encodings_to_try = []
-    if encoding:
-        encodings_to_try.append(encoding)
-    encodings_to_try.extend(enc for enc in encoding_options if enc != encoding)
+        if display_welf or display_centers:
+            draw_nursing_csv_charts(df_welf_csv, df_centers_csv) # 차트 함수는 두 DF를 모두 받아 알아서 처리
+        
+        st.markdown(f"---")
+        if display_welf:
+            st.markdown(f"#### {selected_year}년 노인복지관 상세 데이터 테이블")
+            st.dataframe(df_welf_csv.style.format("{:,.0f}").set_properties(**{'text-align': 'right'}), use_container_width=True)
+        if display_centers:
+            st.markdown(f"#### {selected_year}년 경로당 및 노인교실 상세 데이터 테이블")
+            st.dataframe(df_centers_csv.style.format("{:,.0f}").set_properties(**{'text-align': 'right'}), use_container_width=True)
 
-    for enc in encodings_to_try:
-        try:
-            bytes_data = uploaded_file_object.getvalue()
-            
-            read_options = {'encoding': enc, 'sep': sep_config}
-            if header_config is not None: read_options['header'] = header_config
-            if skiprows_config is not None: read_options['skiprows'] = skiprows_config
-            if na_values_config is not None: read_options['na_values'] = na_values_config
 
-            df = pd.read_csv(io.BytesIO(bytes_data), **read_options)
-            return df
-        except UnicodeDecodeError:
-            continue
-        except Exception as e:
-            st.warning(f"업로드된 파일 '{uploaded_file_object.name}' 로드 중 오류 (인코딩: {enc}): {e}")
-            return None
-            
-    st.error(f"업로드된 파일 '{uploaded_file_object.name}' 로드 실패. 모든 인코딩 시도 실패.")
-    return None
-# --- END OF utils.py ---
+    with tabs[3]:
+        st.subheader(f"{selected_year}년 재가노인복지시설 현황")
+        if df_sheet3 is not None and not df_sheet3.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원 인원수")
+            draw_sheet3_charts(df_sheet3)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet3.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet3.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '3.재가노인복지시설'이 없습니다.")
+
+    with tabs[4]:
+        st.subheader(f"{selected_year}년 노인일자리지원기관 현황")
+        if df_sheet4 is not None and not df_sheet4.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 시설수 및 종사자수")
+            draw_sheet4_charts(df_sheet4)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet4.style.format("{:,.0f}").set_properties(**{'text-align': 'right'}), use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '4.노인일자리지원기관'이 없습니다.")
+
+    with tabs[5]:
+        st.subheader(f"{selected_year}년 치매전담형 장기요양기관 현황")
+        if df_sheet5 is not None and not df_sheet5.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원·추가 수용 가능 인원")
+            draw_sheet5_charts(df_sheet5)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet5.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet5.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '5.치매전담형 장기요양기관'이 없습니다.")
+
+
+if __name__ == "__main__":
+    run_welfare_facilities_page()
