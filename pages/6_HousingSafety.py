@@ -186,10 +186,11 @@ def plot_gu_incident_counts(df_rescue):
     if df_rescue.empty or '발생장소_구' not in df_rescue.columns: st.info("구별 총 사고 발생 건수 데이터를 그릴 수 없습니다."); return
     gu_incident_counts = df_rescue['발생장소_구'].value_counts().sort_values(ascending=False)
     fig, ax = plt.subplots(figsize=(12, 7))
-    sns.barplot(x=gu_incident_counts.index, y=gu_incident_counts.values, color='steelblue', ax=ax)
+    sns.barplot(x=gu_incident_counts.index, y=gu_incident_counts.values, color='steelblue', ax=ax, label='사고 건수')
     ax.set_title('서울시 구별 총 사고 발생 건수', fontsize=16); ax.set_xlabel('자치구', fontsize=12); ax.set_ylabel('사고 건수', fontsize=12)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=10); ax.tick_params(axis='y', labelsize=10)
     ax.grid(axis='y', linestyle='--', alpha=0.7); ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_stacked_bar_incident_causes_by_gu(df_rescue, top_n_causes=7):
@@ -229,6 +230,7 @@ def plot_pie_major_incident_causes(df_rescue, top_n=7):
     for text in texts: text.set_fontsize(10)
     for autotext in autotexts: autotext.set_fontsize(9); autotext.set_color('black')
     ax.set_title(f'주요 사고원인 비율 (상위 {top_n}개 및 기타)', fontsize=16, pad=20); ax.axis('equal')
+    ax.legend(top_causes_pie.index, title="사고원인", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1), fontsize=9)
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_correlation_scatter_ratio(merged_df, x_col_ratio, y_col_incident, title_text, x_label_text):
@@ -240,11 +242,12 @@ def plot_correlation_scatter_ratio(merged_df, x_col_ratio, y_col_incident, title
     except Exception as e:
         st.warning(f"상관계수 계산 중 오류 발생: {e}")
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.regplot(x=x_col_ratio, y=y_col_incident, data=merged_df, ax=ax, color='darkcyan', scatter_kws={'s':60, 'alpha':0.65, 'edgecolor':'black'}, line_kws={'color':'red', 'linewidth':1.5})
+    sns.regplot(x=x_col_ratio, y=y_col_incident, data=merged_df, ax=ax, color='darkcyan', scatter_kws={'s':60, 'alpha':0.65, 'edgecolor':'black'}, line_kws={'color':'red', 'linewidth':1.5}, label=f'{y_col_incident}')
     ax.set_title(title_text, fontsize=15); ax.set_xlabel(x_label_text, fontsize=12); ax.set_ylabel(y_col_incident, fontsize=12)
     ax.grid(True, linestyle=':', alpha=0.6)
     ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0)) 
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
@@ -259,7 +262,7 @@ def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
         if denominator == 0: denominator = 1e-9
         scaled_bubble_sizes = (bubble_sizes_data - bubble_sizes_data.min()) / denominator * (max_bubble_size - min_bubble_size) + min_bubble_size
         scaled_bubble_sizes[bubble_sizes_data == 0] = min_bubble_size / 2
-    scatter_plot = ax.scatter(x='노후주택비율', y='고령인구비율', s=scaled_bubble_sizes, c=df_final_merged[f'{target_cause_for_bubble}건수'], cmap='YlOrRd', alpha=0.7, edgecolors='grey', linewidth=0.5, data=df_final_merged)
+    scatter_plot = ax.scatter(x='노후주택비율', y='고령인구비율', s=scaled_bubble_sizes, c=df_final_merged[f'{target_cause_for_bubble}건수'], cmap='YlOrRd', alpha=0.7, edgecolors='grey', linewidth=0.5, data=df_final_merged, label='자치구별 데이터')
     top_n_districts = df_final_merged.sort_values(by=f'{target_cause_for_bubble}건수', ascending=False).head(7)
     for _, row_data in top_n_districts.iterrows(): ax.text(row_data['노후주택비율'] + 0.002, row_data['고령인구비율'] + 0.001, row_data['발생장소_구'], fontsize=9, color='black', ha='left', va='bottom')
     ax.set_title(f'노후 주택 비율, 고령 인구 비율과 {target_cause_for_bubble} 발생 건수', fontsize=16, pad=15)
@@ -267,6 +270,7 @@ def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
     ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
     ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
     cbar = fig.colorbar(scatter_plot, ax=ax, label=f'{target_cause_for_bubble} 발생 건수'); cbar.ax.tick_params(labelsize=10)
+    ax.legend(fontsize=9, loc='upper right')
     ax.grid(True, linestyle=':', alpha=0.6); plt.tight_layout(); st.pyplot(fig)
 
 def plot_heatmap_housing_elderly_incident_ratio(df_merged_ratio, accident_col_name, target_safety_accident_cause):
@@ -365,10 +369,12 @@ def run_housing_safety_page():
                     hourly_incidents_counts = hourly_incidents_counts['신고시간(시)'].value_counts().sort_index()
                     if not hourly_incidents_counts.empty:
                         fig_time, ax_time = plt.subplots(figsize=(12, 6))
-                        sns.lineplot(x=hourly_incidents_counts.index, y=hourly_incidents_counts.values, marker='o', color='indigo', ax=ax_time)
+                        sns.lineplot(x=hourly_incidents_counts.index, y=hourly_incidents_counts.values, marker='o', color='indigo', ax=ax_time, label='사고 건수')
                         ax_time.set_title('시간대별 사고 발생 추이', fontsize=15); ax_time.set_xlabel('신고 시간 (0시 ~ 23시)', fontsize=12); ax_time.set_ylabel('사고 건수', fontsize=12)
                         ax_time.set_xticks(ticks=range(0, 24)); ax_time.grid(True, linestyle='--', alpha=0.7)
-                        ax_time.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')); plt.tight_layout(); st.pyplot(fig_time)
+                        ax_time.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+                        ax_time.legend(fontsize=10)
+                        plt.tight_layout(); st.pyplot(fig_time)
                     else: st.info("시간대별 사고 발생 추이 분석을 위한 데이터가 부족합니다 (집계 후 데이터 없음).")
                 else: st.info("시간대별 사고 발생 추이 분석을 위한 데이터가 부족합니다 (시간 변환 또는 유효 데이터 부족).")
             else: st.info("구조활동 데이터의 '신고시각'을 유효한 시간 형식으로 변환하는데 실패했습니다.")
