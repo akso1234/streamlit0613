@@ -1,12 +1,11 @@
-# --- START OF 5_MentalHealth.py ---
+# --- START OF 5_MentalHealth.py (sys.path 수정 제거, chart_utils의 최소 함수 호출) ---
 import streamlit as st
 import pandas as pd
 import os
 import numpy as np
 
-# sys.path 수정 코드를 제거합니다.
 from utils import set_korean_font, load_csv
-from chart_utils import (
+from chart_utils import ( # chart_utils.py에 정의된 (최소화된) 함수들을 임포트
     plot_total_elderly_trend,
     plot_gender_elderly_trend,
     plot_subgroup_gender_elderly_trend,
@@ -15,12 +14,26 @@ from chart_utils import (
     plot_sigungu_mental_patients_by_condition_year
 )
 
+# ... (이하 @st.cache_data 데코레이터가 붙은 함수 정의 및 run_mental_health_page 함수는
+#      이전 답변에서 제공된 "전체 5_MentalHealth.py와 또 다른 수정해야 하는 코드가 있으면 그것도 줘"에 대한
+#      답변의 5_MentalHealth.py 코드 내용을 참고하되, chart_utils.py에서 비활성화한 함수 호출 부분은
+#      st.info 메시지만 뜨도록 하거나 주석 처리해야 합니다.)
+
+# 예시: run_mental_health_page 내에서 그래프 호출 부분을 아래처럼 수정
+# with plot_type_tabs_main1[0]:
+#     # plot_total_elderly_trend(total_res, selected_condition_name_tab1) # 실제 그래프 대신 info
+#     st.info(f"개별 질환 - 연도별 총계 그래프는 chart_utils.py의 해당 함수 내용 복구 필요 ({selected_condition_name_tab1})")
+
+# (모든 정신질환 그래프 호출 부분을 위와 같이 임시로 수정)
+
+# 나머지 run_mental_health_page 로직은 이전 답변 참고
+
 @st.cache_data
 def preprocess_mental_health_data_cached(file_path, condition_name):
     try:
         df_header_info = pd.read_csv(file_path, encoding='utf-8-sig', header=None, nrows=5)
         if df_header_info.shape[0] < 5:
-            st.warning(f"{condition_name} 파일에서 헤더 정보를 충분히 읽을 수 없습니다.")
+            # st.warning(f"{condition_name} 파일에서 헤더 정보를 충분히 읽을 수 없습니다.") # 디버깅 시 주석 해제
             return pd.DataFrame()
         
         header_year_row = df_header_info.iloc[3]
@@ -44,7 +57,6 @@ def preprocess_mental_health_data_cached(file_path, condition_name):
     actual_data_metric_cols = df_data_part.shape[1] - num_base_cols
     cols_to_generate_names_for = min(num_header_cols - num_base_cols, actual_data_metric_cols)
 
-
     for i_offset in range(cols_to_generate_names_for):
         i = num_base_cols + i_offset
         year_val_raw = header_year_row[i]
@@ -58,26 +70,21 @@ def preprocess_mental_health_data_cached(file_path, condition_name):
         
         if current_year_header and metric_val:
             year_metric_cols.append(f"{current_year_header}_{metric_val}")
-        elif metric_val : # 연도 정보 없이 항목만 있는 경우 (예: 마지막 '계' 컬럼)
-            year_metric_cols.append(f"_{metric_val}") # 임시로 _metric_val 형태 사용
+        elif metric_val : 
+            year_metric_cols.append(f"_{metric_val}") 
         else:
             year_metric_cols.append(f"Unnamed_col_{i}")
 
-
     if len(year_metric_cols) != actual_data_metric_cols:
-        st.warning(f"{condition_name} 파일: 생성된 측정항목 컬럼명 수({len(year_metric_cols)})와 실제 데이터 컬럼 수({actual_data_metric_cols})가 불일치합니다. 컬럼명을 강제 조정합니다.")
-        # 데이터 컬럼 수에 맞춰 컬럼명 리스트 조정
         if len(year_metric_cols) > actual_data_metric_cols:
             year_metric_cols = year_metric_cols[:actual_data_metric_cols]
-        else: # 생성된 컬럼명이 부족한 경우 (이 경우는 거의 없어야 함)
+        else: 
              year_metric_cols.extend([f"Unnamed_ext_{j}" for j in range(actual_data_metric_cols - len(year_metric_cols))])
-
 
     df_data_part = df_data_part.iloc[:, :num_base_cols + len(year_metric_cols)]
     df_data_part.columns = base_cols + year_metric_cols
     
-
-    value_columns_pattern = ['환자수', '요양급여비용', '입내원일수'] # '입내원일수'로 가정
+    value_columns_pattern = ['환자수', '요양급여비용', '입내원일수']
     columns_to_clean = [col for col in df_data_part.columns if any(pat in str(col) for pat in value_columns_pattern)]
 
     for col in columns_to_clean:
@@ -103,7 +110,7 @@ def analyze_elderly_mental_condition_cached(df_seoul_condition, elderly_groups_p
 
     if not value_vars_melt:
         condition_name_for_log = df_seoul_condition['질환명'].iloc[0] if not df_seoul_condition.empty and '질환명' in df_seoul_condition.columns else '알 수 없는 질환'
-        st.warning(f"{condition_name_for_log} 데이터에서 연도별 환자수 컬럼을 찾을 수 없습니다.")
+        # st.warning(f"{condition_name_for_log} 데이터에서 연도별 환자수 컬럼을 찾을 수 없습니다.") # UI 경고 최소화
         return None, None, None
 
     df_melted = df_elderly.melt(id_vars=id_vars_melt, value_vars=value_vars_melt, var_name='연도_항목', value_name='값')
@@ -223,7 +230,7 @@ def run_mental_health_page():
         selected_condition_name_tab1 = st.selectbox(
             "분석할 질환을 선택하세요:", 
             selectbox_options_tab1, 
-            key="mental_condition_select_tab1_page5_v3"
+            key="mental_condition_select_tab1_page5_v4"
         )
         if selected_condition_name_tab1 != "데이터 없음" and dataframes_by_condition and selected_condition_name_tab1 in dataframes_by_condition:
             df_to_analyze = dataframes_by_condition[selected_condition_name_tab1]
@@ -255,7 +262,7 @@ def run_mental_health_page():
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab2, 
             step=1,
-            key="mental_year_slider_tab2_page5_v3"
+            key="mental_year_slider_tab2_page5_v4"
         )
         if st.session_state.selected_year_mental_tab2 != selected_year_val_tab2:
             st.session_state.selected_year_mental_tab2 = selected_year_val_tab2
@@ -278,7 +285,7 @@ def run_mental_health_page():
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab3,
             step=1,
-            key="mental_year_slider_tab3_page5_v3"
+            key="mental_year_slider_tab3_page5_v4"
         )
         if st.session_state.selected_year_mental_tab3 != selected_year_val_tab3:
             st.session_state.selected_year_mental_tab3 = selected_year_val_tab3
@@ -290,7 +297,7 @@ def run_mental_health_page():
         selected_condition_tab3 = st.selectbox(
             "분석할 질환 선택:",
             selectbox_options_tab3,
-            key="mental_condition_select_tab3_page5_v3"
+            key="mental_condition_select_tab3_page5_v4"
         )
         
         if selected_condition_tab3 != "데이터 없음" and dataframes_by_condition and selected_condition_tab3 in dataframes_by_condition:
