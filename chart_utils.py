@@ -54,49 +54,52 @@ def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
         st.info("의료기관 수 데이터가 없어 막대 그래프를 그릴 수 없습니다.")
         return
 
-    df_plot_original = df_hosp.copy()
-    if "gu" in df_plot_original.columns:
-        df_plot_original = df_plot_original[df_plot_original["gu"] != "소계"].reset_index(drop=True)
+    df_plot_base = df_hosp.copy()
+    if "gu" in df_plot_base.columns:
+        df_plot_base = df_plot_base[df_plot_base["gu"] != "소계"].reset_index(drop=True)
     else: 
         st.error("draw_hospital_count_bar_charts: df_hosp에 'gu' 컬럼이 없습니다.")
         return
 
     types = ["소계", "종합병원", "병원", "의원", "요양병원"]
-    missing_types = [t for t in types if t not in df_plot_original.columns]
+    missing_types = [t for t in types if t not in df_plot_base.columns]
     if missing_types:
-        st.warning(f"draw_hospital_count_bar_charts: df_plot에 다음 컬럼이 없습니다: {missing_types}. 해당 그래프는 생략될 수 있습니다.")
+        st.warning(f"draw_hospital_count_bar_charts: df_plot_base에 다음 컬럼이 없습니다: {missing_types}. 해당 그래프는 생략될 수 있습니다.")
 
     for inst in types:
-        if inst not in df_plot_original.columns: 
+        if inst not in df_plot_base.columns: 
             continue
         
-        df_plot = df_plot_original.copy() # 매번 원본에서 복사하여 정렬
-        df_plot[inst] = pd.to_numeric(df_plot[inst], errors="coerce").fillna(0)
+        # Create a fresh copy for each institution type for independent sorting
+        df_plot_inst = df_plot_base[['gu', inst]].copy()
+        df_plot_inst[inst] = pd.to_numeric(df_plot_inst[inst], errors="coerce").fillna(0)
 
-        # 2. Sort bars in descending order
-        df_plot = df_plot.sort_values(by=inst, ascending=False).reset_index(drop=True)
+        # 2. Sort bars in descending order FOR THE CURRENT INSTITUTION TYPE
+        df_plot_inst_sorted = df_plot_inst.sort_values(by=inst, ascending=False).reset_index(drop=True)
+
+        if df_plot_inst_sorted.empty: # Skip if no data for this inst type
+            st.info(f"'{inst}' 유형에 대한 데이터가 없어 그래프를 생략합니다.")
+            continue
 
         fig, ax = plt.subplots(figsize=(12, 5)) 
-        # 3. Bring bars in front of grid lines (zorder)
-        bars = ax.bar(df_plot["gu"], df_plot[inst], color='skyblue', label=inst, zorder=3) 
+        
+        # 3. Bring bars in front of grid lines (zorder for bars)
+        # Ensure 'gu' column is used for x-axis from the sorted dataframe
+        bars = ax.bar(df_plot_inst_sorted["gu"], df_plot_inst_sorted[inst], color='skyblue', label=inst, zorder=3) 
+        
         ax.set_title(f"서울시 자치구별 {inst} 수", fontsize=15) 
         ax.set_xlabel("자치구", fontsize=12)
         ax.set_ylabel("기관 수", fontsize=12)
         plt.xticks(rotation=45, ha="right", fontsize=10) 
         plt.yticks(fontsize=10)
-        # 3. Bring bars in front of grid lines (zorder for grid)
+        
+        # 3. Grid lines behind bars (zorder for grid)
         ax.grid(axis='y', linestyle='--', alpha=0.7, zorder=0) 
 
-        # 1. Remove numbers on top of bars
-        # for bar in bars:
-        #     yval = bar.get_height()
-        #     if yval > 0 : 
-        #         max_val_for_offset = df_plot[inst].max() if not df_plot[inst].empty else yval # offset 계산을 위한 max 값
-        #         plt.text(bar.get_x() + bar.get_width()/2.0, yval + (max_val_for_offset*0.01 if max_val_for_offset >0 else 0.1), 
-        #                  f'{int(yval)}', ha='center', va='bottom', fontsize=9)
+        # 1. Numbers on top of bars are removed as requested
         
-        if not df_plot[inst].empty and df_plot[inst].max() > 0 :
-             ax.set_ylim(0, df_plot[inst].max() * 1.15)
+        if not df_plot_inst_sorted[inst].empty and df_plot_inst_sorted[inst].max() > 0 :
+             ax.set_ylim(0, df_plot_inst_sorted[inst].max() * 1.15)
         
         ax.legend(fontsize=10, loc='upper right')
         plt.tight_layout() 
