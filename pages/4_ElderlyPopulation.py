@@ -100,8 +100,8 @@ def plot_dokgo_by_gu_yearly(df_gu_dokgo, selected_year):
         st.info(f"{selected_year} 구별 독거노인 데이터를 그릴 수 없습니다."); return
     df_gu_sorted = df_gu_dokgo.sort_values(by=selected_year, ascending=False)
     fig, ax = plt.subplots(figsize=(10, 10))
-    bars = ax.barh(df_gu_sorted.index, df_gu_sorted[selected_year], color='skyblue', label=f'{selected_year} 독거노인 수')
-    ax.set_title(f'서울시 구별 독거노인 수 ({selected_year} 기준)', fontsize=15)
+    bars = ax.barh(df_gu_sorted.index, df_gu_sorted[selected_year], color='skyblue', label=f'독거노인 수')
+    ax.set_title(f'서울시 자치구별 독거노인 수 ({selected_year} 기준)', fontsize=15)
     ax.set_xlabel('독거노인 수 (명)'); ax.set_ylabel('구'); ax.invert_yaxis()
     max_val = df_gu_sorted[selected_year].max() if not df_gu_sorted.empty else 0
     for bar_obj in bars:
