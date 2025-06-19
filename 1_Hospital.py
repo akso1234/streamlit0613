@@ -97,7 +97,7 @@ def run_hospital_page():
             st.info("평균 병상 수 관련 데이터가 없어 히트맵을 그릴 수 없습니다.")
     
     with tab4: 
-        st.subheader(f"{selected_year}년 구별 전체 병원, 병상 그래프") 
+        st.subheader(f"{selected_year}년 전체 병원, 병상 그래프") 
         if df_hosp is not None and not df_hosp.empty and \
            df_beds is not None and not df_beds.empty:
             draw_aggregate_hospital_bed_charts(df_hosp, df_beds)
