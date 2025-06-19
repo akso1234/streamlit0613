@@ -72,7 +72,7 @@ def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
         bars = ax.bar(df_plot_inst_sorted["gu"], df_plot_inst_sorted[inst], color='skyblue', label=inst, zorder=3)
         ax.set_title(f"서울시 자치구별 {inst} 수", fontsize=15) # 연도 정보 제거
         ax.set_xlabel("자치구", fontsize=12)
-        ax.set_ylabel("기관 수", fontsize=12)
+        ax.set_ylabel("기관 수 (개)", fontsize=12)
         plt.xticks(rotation=45, ha="right", fontsize=10)
         plt.yticks(fontsize=10)
         ax.grid(axis='y', linestyle='--', alpha=0.7, zorder=0)
@@ -91,7 +91,7 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
 
     df_h = df_hosp.copy()
     df_b = df_beds.copy()
-
+    
     if "gu" in df_h.columns:
         df_h = df_h[df_h["gu"] != "소계"].reset_index(drop=True)
     if "gu" in df_b.columns:
