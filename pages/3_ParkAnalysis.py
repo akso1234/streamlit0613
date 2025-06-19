@@ -115,7 +115,7 @@ def plot_yearly_district_comparison(
     title_text = f'자치구별 {metric_name_for_title}'
     # "총 공원"과 같은 중복 prefix 방지 (metric_name_for_title을 명확하게 전달)
     if "총 공원" not in metric_name_for_title and ("면적" in metric_name_for_title or "수" in metric_name_for_title or "평균 면적" in metric_name_for_title):
-         title_text = f'자치구별 총 공원 {metric_name_for_title}'
+         title_text = f'자치구별 총 {metric_name_for_title}'
     elif "공원 공원 수" in metric_name_for_title : # 요청사항 1 수정
         title_text = metric_name_for_title.replace("공원 공원 수", "공원 수")
 
