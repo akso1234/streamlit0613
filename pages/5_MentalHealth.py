@@ -4,22 +4,21 @@ import pandas as pd
 import os
 import numpy as np
 
-# sys.path를 수정하는 모든 코드를 제거합니다.
+# sys.path 수정 코드를 제거합니다.
 # Streamlit은 일반적으로 프로젝트 루트를 Python 경로에 포함시킵니다.
 
-from utils import set_korean_font, load_csv # 파일명이 utils.py 여야 함
-from chart_utils import ( # 파일명이 chart_utils.py 여야 함
+from utils import set_korean_font, load_csv
+from chart_utils import (
     plot_total_elderly_trend,
     plot_gender_elderly_trend,
     plot_subgroup_gender_elderly_trend,
     plot_all_conditions_yearly_comparison,
     plot_pie_chart_by_year,
     plot_sigungu_mental_patients_by_condition_year
+    # 만약 이 파일에서 Welfare 관련 차트 함수를 사용하지 않는다면,
+    # 해당 함수들은 chart_utils 임포트 목록에서 제거해도 됩니다.
+    # (현재는 정신질환 관련 함수만 명시적으로 임포트하고 있습니다.)
 )
-
-# ... (이하 @st.cache_data 데코레이터가 붙은 함수 정의 및 run_mental_health_page 함수는
-#      이전 답변에서 제공된 내용과 동일하게 유지합니다.
-#      주요 변경점은 파일 상단의 sys.path 조작 코드 제거와 임포트 구문 확인입니다.)
 
 @st.cache_data
 def preprocess_mental_health_data_cached(file_path, condition_name):
@@ -172,7 +171,7 @@ def run_mental_health_page():
         selected_condition_name_tab1 = st.selectbox(
             "분석할 질환을 선택하세요:", 
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"], 
-            key="mental_condition_select_tab1_final_v10" # 고유 키 사용
+            key="mental_condition_select_tab1_final_v11"
         )
         if dataframes_by_condition and selected_condition_name_tab1 in dataframes_by_condition:
             df_to_analyze = dataframes_by_condition[selected_condition_name_tab1]
@@ -204,7 +203,7 @@ def run_mental_health_page():
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab2, 
             step=1,
-            key="mental_year_slider_tab2_main_v12" # 고유 키 사용
+            key="mental_year_slider_tab2_main_v13"
         )
         if st.session_state.selected_year_mental_tab2 != selected_year_val_tab2:
             st.session_state.selected_year_mental_tab2 = selected_year_val_tab2
@@ -227,7 +226,7 @@ def run_mental_health_page():
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab3,
             step=1,
-            key="mental_year_slider_tab3_main_v12" # 고유 키 사용
+            key="mental_year_slider_tab3_main_v13"
         )
         if st.session_state.selected_year_mental_tab3 != selected_year_val_tab3:
             st.session_state.selected_year_mental_tab3 = selected_year_val_tab3
@@ -236,7 +235,7 @@ def run_mental_health_page():
         selected_condition_tab3 = st.selectbox(
             "분석할 질환 선택:",
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"],
-            key="mental_condition_select_tab3_final_v12" # 고유 키 사용
+            key="mental_condition_select_tab3_final_v13"
         )
         
         if dataframes_by_condition and selected_condition_tab3 in dataframes_by_condition:
