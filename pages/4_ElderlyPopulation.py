@@ -100,7 +100,7 @@ def plot_dokgo_by_gu_yearly(df_gu_dokgo, selected_year):
         st.info(f"{selected_year} 구별 독거노인 데이터를 그릴 수 없습니다."); return
     df_gu_sorted = df_gu_dokgo.sort_values(by=selected_year, ascending=False)
     fig, ax = plt.subplots(figsize=(10, 10))
-    bars = ax.barh(df_gu_sorted.index, df_gu_sorted[selected_year], color='skyblue')
+    bars = ax.barh(df_gu_sorted.index, df_gu_sorted[selected_year], color='skyblue', label=f'{selected_year} 독거노인 수')
     ax.set_title(f'서울시 구별 독거노인 수 ({selected_year} 기준)', fontsize=15)
     ax.set_xlabel('독거노인 수 (명)'); ax.set_ylabel('구'); ax.invert_yaxis()
     max_val = df_gu_sorted[selected_year].max() if not df_gu_sorted.empty else 0
@@ -109,6 +109,7 @@ def plot_dokgo_by_gu_yearly(df_gu_dokgo, selected_year):
         offset = max_val * 0.005 if max_val > 0 else 10
         ax.text(width + offset, bar_obj.get_y() + bar_obj.get_height()/2, f'{int(width):,}', ha='left', va='center', fontsize=9)
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_top_gu_dokgo_trend(df_gu_dokgo, year_data_cols, N=10):
@@ -199,7 +200,7 @@ def plot_district_elderly_ratio_yearly(df_goryeong_districts, selected_goryeong_
     ratio = (elderly_pop / total_pop.replace(0, np.nan)) * 100; ratio_sorted = ratio.dropna().sort_values(ascending=False)
     if ratio_sorted.empty: st.info(f"{selected_goryeong_year_str}년 구별 고령화율 계산 결과가 없습니다."); return
     fig, ax = plt.subplots(figsize=(15, 7))
-    bars = sns.barplot(x=ratio_sorted.index.get_level_values('구분_소'), y=ratio_sorted.values, color='mediumseagreen', ax=ax)
+    bars = sns.barplot(x=ratio_sorted.index.get_level_values('구분_소'), y=ratio_sorted.values, color='mediumseagreen', ax=ax, label='고령화율')
     ax.set_title(f'{selected_goryeong_year_str}년 서울시 자치구별 고령화율', fontsize=15)
     ax.set_xlabel('자치구'); ax.set_ylabel('고령화율 (%)'); plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=10)
     ax.tick_params(axis='y', labelsize=10)
@@ -207,6 +208,7 @@ def plot_district_elderly_ratio_yearly(df_goryeong_districts, selected_goryeong_
         yval = bar_obj.get_height()
         if pd.notnull(yval): ax.text(bar_obj.get_x() + bar_obj.get_width()/2.0, yval + 0.1, f'{yval:.2f}%', ha='center', va='bottom', fontsize=9)
     if not ratio_sorted.empty: ax.set_ylim(0, ratio_sorted.max() * 1.1)
+    ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data, selected_goryeong_year_str):
@@ -216,9 +218,11 @@ def plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data, selected_goryeo
         female_pop = seoul_total_goryeong_data[(selected_goryeong_year_str, '65세이상 인구', '여자', '소계')]
     except KeyError: st.warning(f"{selected_goryeong_year_str}년 노인 성별 데이터 컬럼을 고령자현황 데이터에서 찾을 수 없습니다."); return
     fig, ax = plt.subplots(figsize=(7, 7))
-    ax.pie([male_pop, female_pop], explode=(0, 0.05), labels=[f'남자 ({male_pop:,}명)', f'여자 ({female_pop:,}명)'],
+    pie_labels = [f'남자 ({male_pop:,}명)', f'여자 ({female_pop:,}명)']
+    ax.pie([male_pop, female_pop], explode=(0, 0.05), labels=pie_labels,
             colors=['skyblue', 'lightcoral'], autopct='%1.1f%%', shadow=True, startangle=140, textprops={'fontsize': 11})
     ax.set_title(f'{selected_goryeong_year_str}년 서울시 65세 이상 인구 성별 분포', fontsize=15); ax.axis('equal')
+    ax.legend(pie_labels, title="성별", loc="best", fontsize=10)
     st.pyplot(fig)
 
 def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_districts, selected_year_dokgo_format):
@@ -235,7 +239,7 @@ def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_distric
     ratio_gu_sorted = ratio_gu.dropna().sort_values(ascending=False)
     if ratio_gu_sorted.empty: st.info(f"{selected_year_dokgo_format} 구별 독거노인 비율 계산 결과가 없습니다."); return
     fig, ax = plt.subplots(figsize=(15, 7))
-    bars = sns.barplot(x=ratio_gu_sorted.index, y=ratio_gu_sorted.values, color='lightcoral', ax=ax)
+    bars = sns.barplot(x=ratio_gu_sorted.index, y=ratio_gu_sorted.values, color='lightcoral', ax=ax, label='독거노인 비율')
     ax.set_title(f'{selected_year_dokgo_format} 서울시 자치구별 65세 이상 인구 중 독거노인 비율', fontsize=15)
     ax.set_xlabel('자치구'); ax.set_ylabel('독거노인 비율 (%)'); plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=10)
     ax.tick_params(axis='y', labelsize=10)
@@ -244,6 +248,7 @@ def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_distric
         if pd.notnull(yval): ax.text(bar_obj.get_x() + bar_obj.get_width()/2.0, yval + 0.1, f'{yval:.2f}%', ha='center', va='bottom', fontsize=9)
     if not ratio_gu_sorted.empty: ax.set_ylim(0, ratio_gu_sorted.max() * 1.15)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.1f}%'))
+    ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
 
