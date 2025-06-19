@@ -1,6 +1,22 @@
 # --- START OF 5_MentalHealth.py ---
 import streamlit as st
 import pandas as pd
+import os # os 모듈 임포트 확인
+
+# --- 경로 문제 해결을 위한 코드 추가 ---
+import sys
+# 현재 파일(5_MentalHealth.py)의 절대 경로를 가져옵니다.
+current_file_path = os.path.abspath(__file__)
+# 현재 파일이 있는 디렉토리 (예: /mount/src/streamlit0613/pages)
+current_dir = os.path.dirname(current_file_path)
+# 부모 디렉토리 (예: /mount/src/streamlit0613) - 프로젝트 루트
+parent_dir = os.path.dirname(current_dir)
+
+# sys.path에 부모 디렉토리가 없다면 추가합니다.
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+# --- 경로 문제 해결 코드 끝 ---
+
 from utils import set_korean_font, load_csv
 from chart_utils import (
     plot_total_elderly_trend,
@@ -10,7 +26,6 @@ from chart_utils import (
     plot_pie_chart_by_year,
     plot_sigungu_mental_patients_by_condition_year
 )
-import os
 
 @st.cache_data
 def preprocess_mental_health_data_cached(file_path, condition_name):
@@ -156,12 +171,12 @@ def run_mental_health_page():
     main_tab1, main_tab2, main_tab3 = st.tabs([tab1_title, tab2_title, tab3_title])
 
     with main_tab1:
-        st.subheader(tab1_title) # 요청사항 1: (서울시 전체) 제거됨
+        st.subheader(tab1_title)
         
         selected_condition_name_tab1 = st.selectbox(
             "분석할 질환을 선택하세요:", 
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"], 
-            key="mental_condition_select_tab1_final_v2" # 키 변경
+            key="mental_condition_select_tab1_final_v3"
         )
         if dataframes_by_condition and selected_condition_name_tab1 in dataframes_by_condition:
             df_to_analyze = dataframes_by_condition[selected_condition_name_tab1]
@@ -181,18 +196,16 @@ def run_mental_health_page():
 
 
     with main_tab2:
-        # 요청사항 1 (종합 비교 탭): 주제를 슬라이더 위로
         current_selected_year_tab2 = st.session_state.selected_year_mental_tab2
-        st.subheader(f"{current_selected_year_tab2}년 정신질환별 환자수 비교") # 요청사항 5
+        st.subheader(f"{current_selected_year_tab2}년 정신질환별 환자수 비교")
 
-        # 요청사항 3 (종합 비교 탭): 슬라이더 레이블에서 괄호 제거
         selected_year_val_tab2 = st.slider(
-            "조회 연도 선택", 
+            "조회 연도 선택", # 레이블에서 "(종합 비교)" 제거
             min_value=min(available_years_for_mental_analysis), 
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab2, 
             step=1,
-            key="mental_year_slider_tab2_main_v3" # 키 변경
+            key="mental_year_slider_tab2_main_v4"
         )
         if st.session_state.selected_year_mental_tab2 != selected_year_val_tab2:
             st.session_state.selected_year_mental_tab2 = selected_year_val_tab2
@@ -201,13 +214,12 @@ def run_mental_health_page():
         if all_conditions_summaries_list:
             all_conditions_summary_df_final = pd.concat(all_conditions_summaries_list).reset_index(drop=True)
             plot_all_conditions_yearly_comparison(all_conditions_summary_df_final, selected_year_val_tab2)
-            # 요청사항 2 (종합 비교 탭): 그래프 사이 선 제거
+            # 그래프 사이 선 제거
             plot_pie_chart_by_year(all_conditions_summary_df_final, selected_year_val_tab2)
         else: 
             st.info("정신질환 종합 비교를 위한 데이터가 충분하지 않습니다.")
 
     with main_tab3:
-        # 요청사항 4 (구별 분석 탭): 주제를 슬라이더 위로
         current_selected_year_tab3 = st.session_state.selected_year_mental_tab3
         st.subheader(f"{current_selected_year_tab3}년 {tab3_title}") 
 
@@ -217,7 +229,7 @@ def run_mental_health_page():
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab3,
             step=1,
-            key="mental_year_slider_tab3_main_v3" # 키 변경
+            key="mental_year_slider_tab3_main_v4"
         )
         if st.session_state.selected_year_mental_tab3 != selected_year_val_tab3:
             st.session_state.selected_year_mental_tab3 = selected_year_val_tab3
@@ -226,7 +238,7 @@ def run_mental_health_page():
         selected_condition_tab3 = st.selectbox(
             "분석할 질환 선택:",
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"],
-            key="mental_condition_select_tab3_final_v3" # 키 변경
+            key="mental_condition_select_tab3_final_v4"
         )
         
         if dataframes_by_condition and selected_condition_tab3 in dataframes_by_condition:
@@ -242,6 +254,7 @@ def run_mental_health_page():
             st.info("로드된 질환 데이터가 없습니다.")
         else:
             st.info(f"'{selected_condition_tab3}'에 대한 데이터를 찾을 수 없습니다.")
+
 
 if __name__ == "__main__":
     run_mental_health_page()
