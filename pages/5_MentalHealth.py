@@ -214,11 +214,13 @@ def aggregate_mental_patients_sigungu_total_cached(dataframes_by_condition, elde
 def plot_total_elderly_trend(total_patients_df, condition_name):
     if total_patients_df is None or total_patients_df.empty: st.info(f"노인 {condition_name} 환자수 총계 추이 데이터를 그릴 수 없습니다."); return
     fig, ax = plt.subplots(figsize=(10, 5))
-    sns.lineplot(data=total_patients_df, x='연도', y='총 노인 환자수', marker='o', ax=ax, color='steelblue')
+    sns.lineplot(data=total_patients_df, x='연도', y='총 노인 환자수', marker='o', ax=ax, color='steelblue', label=f'{condition_name} 총 환자수')
     ax.set_title(f'서울시 노인 {condition_name} 환자수 추이', fontsize=15)
     ax.set_xlabel('연도'); ax.set_ylabel('총 노인 환자수'); ax.grid(True)
     if not total_patients_df.empty: ax.set_xticks(total_patients_df['연도'].unique())
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')); st.pyplot(fig)
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.legend(fontsize=10)
+    st.pyplot(fig)
 
 def plot_gender_elderly_trend(patients_gender_df, condition_name):
     if patients_gender_df is None or patients_gender_df.empty: st.info(f"노인 {condition_name} 성별 환자수 추이 데이터를 그릴 수 없습니다."); return
@@ -228,7 +230,8 @@ def plot_gender_elderly_trend(patients_gender_df, condition_name):
     ax.set_title(f'서울시 노인 {condition_name} 환자수 추이 (성별)', fontsize=15)
     ax.set_xlabel('연도'); ax.set_ylabel('노인 환자수'); ax.legend(); ax.grid(True)
     if not patients_gender_df.empty: ax.set_xticks(patients_gender_df['연도'].unique())
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')); st.pyplot(fig)
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    st.pyplot(fig)
 
 def plot_subgroup_gender_elderly_trend(patients_subgroup_df, condition_name):
     if patients_subgroup_df is None or patients_subgroup_df.empty: st.info(f"노인 {condition_name} 세부 연령대 및 성별 환자수 추이 데이터를 그릴 수 없습니다."); return
@@ -247,11 +250,13 @@ def plot_all_conditions_yearly_comparison(all_conditions_summary_df, selected_ye
     if year_df_to_plot.empty: st.info(f"{selected_year_int}년 데이터가 없어 종합 비교 그래프를 생성할 수 없습니다."); return
     year_df_to_plot = year_df_to_plot.sort_values(by='총 노인 환자수', ascending=False)
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(data=year_df_to_plot, x='질환명', y='총 노인 환자수', color='teal', ax=ax)
+    sns.barplot(data=year_df_to_plot, x='질환명', y='총 노인 환자수', color='teal', ax=ax, label='총 노인 환자수')
     ax.set_title(f'서울시 {selected_year_int}년 노인 정신질환별 환자수 비교', fontsize=15)
     ax.set_xlabel('질환명'); ax.set_ylabel('총 노인 환자수'); plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=10)
     ax.tick_params(axis='y', labelsize=10); ax.grid(axis='y', linestyle='--', alpha=0.7)
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}')); plt.tight_layout(); st.pyplot(fig)
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.legend(fontsize=10)
+    plt.tight_layout(); st.pyplot(fig)
 
 def plot_pie_chart_by_year(all_conditions_summary_df, selected_year_int):
     if all_conditions_summary_df.empty: st.info("파이차트 생성을 위한 데이터가 없습니다."); return
@@ -268,7 +273,9 @@ def plot_pie_chart_by_year(all_conditions_summary_df, selected_year_int):
     for autotext in autotexts: autotext.set_fontsize(9); autotext.set_color('black')
     centre_circle = plt.Circle((0,0),0.60,fc='white'); fig.gca().add_artist(centre_circle)
     ax.set_title(f'서울시 {selected_year_int}년 전체 노인 정신질환별 환자 수 비율', fontsize=16)
-    ax.axis('equal'); plt.tight_layout(); st.pyplot(fig)
+    ax.axis('equal')
+    ax.legend(year_data_for_pie['질환명'], title="질환명", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1), fontsize=9)
+    plt.tight_layout(); st.pyplot(fig)
 
 # --- "구별 상세 분석" 탭을 위한 새로운 시각화 함수 ---
 def plot_sigungu_mental_patients_by_condition_year(df_sigungu_mental_total, selected_condition, selected_year):
@@ -291,7 +298,7 @@ def plot_sigungu_mental_patients_by_condition_year(df_sigungu_mental_total, sele
     df_plot = df_plot.sort_values(by='질환별_노인_환자수_총합', ascending=False)
 
     fig, ax = plt.subplots(figsize=(20, 10))
-    bars = sns.barplot(data=df_plot, x='시군구', y='질환별_노인_환자수_총합', color='lightcoral', ax=ax)
+    bars = sns.barplot(data=df_plot, x='시군구', y='질환별_노인_환자수_총합', color='lightcoral', ax=ax, label=f'{selected_condition} 환자수')
     ax.set_title(f'서울시 구별 <{selected_condition}> 노인 환자 수 ({selected_year}년)', fontsize=16)
     ax.set_xlabel('자치구', fontsize=14)
     ax.set_ylabel(f'{selected_condition} 노인 환자 수 (명)', fontsize=14)
@@ -314,6 +321,7 @@ def plot_sigungu_mental_patients_by_condition_year(df_sigungu_mental_total, sele
                 va='bottom' if bar_patch.get_height() >=0 else 'top',
                 fontsize=8
             )
+    ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
 
