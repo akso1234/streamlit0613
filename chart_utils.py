@@ -518,8 +518,8 @@ def draw_sheet3_charts(
     st.pyplot(fig2)
 
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
-    ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
-    ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
+    ax3.bar(x - bar_width_fig2/2, df_metrics['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원 돌봄 수', color='mediumseagreen')
+    ax3.bar(x + bar_width_fig2/2, df_metrics['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원 돌봄 수', color='mediumpurple')
     ax3.set_xticks(x)
     ax3.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
     ax3.set_xlabel("자치구", fontsize=12)
