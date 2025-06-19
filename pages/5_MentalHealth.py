@@ -310,9 +310,9 @@ def run_mental_health_page():
     tab_titles = [
         "개별 질환 분석 (서울시 전체)", 
         "서울시 전체 종합 비교",
-        "구별 환자 수",
+        "자치구별 환자 수",
         "서울시 전체 비율 분석", 
-        "구별 환자 비율 분석"
+        "자치구별 환자 비율 분석"
     ]
     main_tab1, main_tab2, main_tab3, main_tab4, main_tab5 = st.tabs(tab_titles)
 
