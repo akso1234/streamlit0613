@@ -193,7 +193,7 @@ def plot_district_elderly_ratio_change(df_districts, start_year_str, end_year_st
     sns.barplot(x=ratio_change_pp_sorted.index.get_level_values('구분_소'), 
                 y=ratio_change_pp_sorted.values, ax=ax,
                 label=f'{start_year_str}년 대비 {end_year_str}년 변화량 (p.p.)')
-    ax.set_title(f'서울시 자치구별 고령화율 변화량 ({start_year_str}년 대비 {end_year_str}년)', fontsize=16)
+    ax.set_title(f'서울시 자치구별 고령화율 변화량)', fontsize=16)
     ax.set_xlabel('자치구', fontsize=12)
     ax.set_ylabel('고령화율 변화 (p.p.)', fontsize=12)
     plt.xticks(rotation=45, ha='right')
@@ -248,7 +248,7 @@ def plot_seoul_total_dokgo_trend(df_seoul_total, df_seoul_male, df_seoul_female,
         ax.plot(year_data_cols, df_seoul_female[year_data_cols].iloc[0], marker='s', linestyle='--', label='여성')
     if not df_seoul_total.empty and all(col in df_seoul_total.columns for col in year_data_cols):
         ax.plot(year_data_cols, df_seoul_total[year_data_cols].iloc[0], marker='^', linestyle=':', label='전체 (계)')
-    ax.set_title('서울시 전체 연도별 독거노인 수 변화 (성별 구분)', fontsize=16)
+    ax.set_title('서울시 전체 연도별 독거노인 수 변화', fontsize=16)
     ax.set_xlabel('연도', fontsize=12); ax.set_ylabel('독거노인 수 (명)', fontsize=12)
     ax.set_xticks(year_data_cols); ax.set_xticklabels(year_data_cols)
     ax.legend(title='성별', fontsize=10); ax.grid(True, linestyle=':', alpha=0.7)
@@ -414,8 +414,8 @@ def run_elderly_population_page():
 
     # 탭 구성 순서 변경: "2023년 자치구별 65세 이상 인구" 탭을 "자치구별 현황 비교" 탭의 첫 번째 하위 탭으로 이동
     main_tab1, main_tab2, main_tab3 = st.tabs([
-        "서울시 전체 고령화 추세",
-        "서울시 전체 독거노인 추세",
+        "고령화 추세",
+        "독거노인 추세",
         "자치구별 현황 비교"
     ])
 
