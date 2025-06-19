@@ -1,92 +1,5 @@
 # --- START OF 3_ParkAnalysis.py ---
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import folium
-from streamlit_folium import st_folium
-from utils import set_korean_font, load_csv, load_geojson
-import os
-import numpy as np
-from shapely.geometry import shape
-from matplotlib.ticker import FuncFormatter
-
-
-# --- 데이터 전처리 및 추출 함수 (이 파일 내에 있거나 chart_utils 등에서 import) ---
-@st.cache_data
-def preprocess_park_data_cached(df_raw):
-    if df_raw is None:
-        return pd.DataFrame(), pd.DataFrame()
-
-    df_processed = df_raw.copy()
-    gu_column_tuple = None
-    if len(df_processed.columns) > 1:
-        potential_gu_column_tuple = df_processed.columns[1]
-        gu_column_tuple = potential_gu_column_tuple
-    else:
-        return pd.DataFrame(), pd.DataFrame()
-
-    try:
-        df_processed = df_processed.set_index(gu_column_tuple)
-        df_processed.index.name = '자치구'
-        if len(df_raw.columns) > 0:
-            first_column_tuple_to_drop = df_raw.columns[0]
-            if first_column_tuple_to_drop in df_processed.columns:
-                 df_processed = df_processed.drop(columns=[first_column_tuple_to_drop])
-    except KeyError:
-        return pd.DataFrame(), pd.DataFrame()
-    except Exception:
-        return pd.DataFrame(), pd.DataFrame()
-
-    df_seoul_total = pd.DataFrame()
-    if '소계' in df_processed.index:
-        df_seoul_total = df_processed.loc[['소계']].copy()
-
-    districts_to_exclude = ['소계', '서울대공원']
-    districts_df = df_processed.drop(index=districts_to_exclude, errors='ignore')
-    return districts_df, df_seoul_total
-
-@st.cache_data
-def extract_total_park_stats_cached(districts_df, years_str_list):
-    if districts_df is None or districts_df.empty:
-        return pd.DataFrame(), pd.DataFrame()
-
-    park_counts_list = []
-    park_areas_list = []
-
-    for district_name in districts_df.index:
-        try:
-            district_data_series = districts_df.loc[district_name]
-        except KeyError:
-            continue
-
-        counts = {'자치구': district_name}
-        areas = {'자치구': district_name}
-
-        for year_str in years_str_list:
-            count_col_tuple = (year_str, '합계', '소계', '소계', '공원수 (개소)')
-            area_col_tuple = (year_str, '합계', '소계', '소계', '면적 (천㎡)')
-
-            count_val = district_data_series.get(count_col_tuple)
-            area_val = district_data_series.get(area_col_tuple)
-
-            counts[year_str] = pd.to_numeric(count_val, errors='coerce')
-            areas[year_str] = pd.to_numeric(area_val, errors='coerce')
-
-        park_counts_list.append(counts)
-        park_areas_list.append(areas)
-
-    df_park_counts = pd.DataFrame(park_counts_list)
-    if not df_park_counts.empty:
-        df_park_counts = df_park_counts.set_index('자치구').fillna(0)
-        df_park_counts = df_park_counts[[col for col in years_str_list if col in df_park_counts.columns]]
-
-    df_park_area = pd.DataFrame(park_areas_list)
-    if not df_park_area.empty:
-        df_park_area = df_park_area.set_index('자치구').fillna(0)
-        df_park_area = df_park_area[[col for col in years_str_list if col in df_park_area.columns]]
-
-    return df_park_counts, df_park_area
+# ... (이전 코드는 동일) ...
 
 # --- 시각화 함수 (이 파일 내에 정의된 것으로 가정) ---
 def plot_yearly_district_comparison(
@@ -110,7 +23,7 @@ def plot_yearly_district_comparison(
     sns.barplot(x=selected_year_str, y='자치구', data=data_for_year, color=bar_color, ax=ax, label=final_xlabel)
     
     # 그래프 제목을 metric_name_for_title로 직접 설정
-    ax.set_title(f'자치구별 {metric_name_for_title}', fontsize=16)
+    ax.set_title(f'자치구별 {metric_name_for_title}', fontsize=16) # metric_name_for_title을 그대로 사용
     ax.set_xlabel(final_xlabel, fontsize=12)
     ax.set_ylabel('자치구', fontsize=12)
     ax.tick_params(axis='x', labelsize=10); ax.tick_params(axis='y', labelsize=9)
@@ -118,9 +31,10 @@ def plot_yearly_district_comparison(
     ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
+# ... (plot_seoul_total_distribution, create_choropleth_map 함수는 이전과 동일하게 유지) ...
 def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
     if df_seoul_total is None or df_seoul_total.empty:
-        st.info(f"데이터가 없어 서울시 전체 공원 유형별 면적 파이 차트를 생성할 수 없습니다.")
+        st.info(f"데이터가 없어 서울시 전체 공원 유형별 면적 파이 차트를 생성할 수 없습니다.") # 연도 정보 제거
         return
     if '소계' not in df_seoul_total.index:
         st.warning("plot_seoul_total_distribution: '소계' 인덱스를 가진 서울시 전체 데이터가 없습니다.")
@@ -138,7 +52,7 @@ def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
     if pd.notna(area_dz) and area_dz > 0: park_type_areas['도시자연공원구역'] = area_dz
 
     if not park_type_areas:
-        st.info(f"추출된 공원 유형별 면적 데이터가 없습니다.")
+        st.info(f"추출된 공원 유형별 면적 데이터가 없습니다.") # 연도 정보 제거
         return
 
     park_types_series = pd.Series(park_type_areas).sort_values(ascending=False)
@@ -146,7 +60,7 @@ def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
     threshold_ratio = 2.0 
     total_area = park_types_series.sum()
     if total_area == 0:
-        st.info(f"공원 면적 데이터가 모두 0입니다.")
+        st.info(f"공원 면적 데이터가 모두 0입니다.") # 연도 정보 제거
         return
         
     small_slices = park_types_series[park_types_series / total_area * 100 < threshold_ratio]
@@ -184,18 +98,14 @@ def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
             elif pct >= 2.5:
                 return f"{pct:.1f}%"
         return ""
-
-    # autotexts를 직접 수정하기 위해, pie 함수 호출 시 labels를 조건부로 전달
-    wedges, texts, autotexts = ax.pie(
-        park_types_series_to_plot,
+        
+    wedge_values = park_types_series_to_plot.values
+    # autopct 함수를 위한 인덱스 매핑 또는 값 기반 찾기 로직 개선 필요
+    # 가장 간단한 방법은 autotexts를 후처리하는 것
+    wedges, texts, autotexts_generated = ax.pie(
+        wedge_values, # Series의 값만 전달
         labels=pie_labels_outer,
-        autopct=lambda pct: autopct_with_label_inside(pct, park_types_series_to_plot.values, 
-                                                      # values 리스트에서 현재 값의 첫 번째 인덱스를 찾는 방식 대신, 
-                                                      # autotexts를 순회하며 인덱스를 사용하는 것이 더 안정적일 수 있음
-                                                      # 여기서는 pie 내부 로직에 의존하여 생성된 autotexts를 후처리하는 방식으로 변경
-                                                      # 임시로 -1을 전달하고, 아래 autotexts 루프에서 실제 레이블과 값으로 처리
-                                                      -1 
-                                                      ),
+        autopct=func_autopct, # 비율만 표시하는 autopct 사용
         startangle=140,
         pctdistance=0.65, 
         labeldistance=1.05,
@@ -205,7 +115,7 @@ def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
     )
 
     # autotexts (비율 텍스트) 후처리
-    for i, autotext_obj in enumerate(autotexts):
+    for i, autotext_obj in enumerate(autotexts_generated):
         current_label = park_types_series_to_plot.index[i]
         current_value_pct = (park_types_series_to_plot.iloc[i] / total_area) * 100
         
@@ -213,14 +123,14 @@ def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
             autotext_obj.set_text(f"{current_label}\n{current_value_pct:.1f}%")
             autotext_obj.set_fontsize(11)
             autotext_obj.set_color('black')
-        elif current_value_pct >= 2.5:
-            autotext_obj.set_text(f"{current_value_pct:.1f}%")
+        elif current_value_pct >= 2.5: # func_autopct에서 이미 처리됨
+            # autotext_obj.set_text(f"{current_value_pct:.1f}%") # 이미 설정됨
             autotext_obj.set_fontsize(8)
             autotext_obj.set_color('black')
         else:
-            autotext_obj.set_text("") # 작은 비율은 텍스트 숨김
+            autotext_obj.set_text("") 
             
-    for i, text_obj in enumerate(texts): # 외부 레이블 폰트 크기 (필요시)
+    for i, text_obj in enumerate(texts): 
         current_label = park_types_series_to_plot.index[i]
         if current_label not in target_labels_for_larger_font :
              text_obj.set_fontsize(9)
@@ -302,7 +212,7 @@ def run_park_analysis_page():
         max_value=park_years_int[-1],
         step=1,
         value=st.session_state.selected_year_park,
-        key="park_year_slider_main_page_v4" # 유니크한 키 사용
+        key="park_year_slider_main_page_v4"
     )
     st.session_state.selected_year_park = selected_year_int
     selected_year_str = str(selected_year_int)
@@ -322,7 +232,6 @@ def run_park_analysis_page():
         st.error("공원 통계 추출 중 오류가 발생했습니다.")
         return
 
-
     geojson_url = 'https://raw.githubusercontent.com/southkorea/seoul-maps/master/kostat/2013/json/seoul_municipalities_geo_simple.json'
     @st.cache_data
     def get_geojson_cached_park_page(url): return load_geojson(url)
@@ -340,24 +249,22 @@ def run_park_analysis_page():
         if not df_park_area.empty:
             plot_yearly_district_comparison(
                 df_park_area,
-                metric_name_for_title="총 공원 면적", # 명확한 제목 전달
+                metric_name_for_title="총 공원 면적", # 제목 수정
                 selected_year_str=selected_year_str,
                 bar_color='cornflowerblue',
                 custom_xlabel="공원 면적 (천㎡)"
             )
         else: st.info(f"{selected_year_str}년 자치구별 공원 면적 데이터가 없습니다.")
-        # 요청사항 2: 그래프 사이 선 제거 (st.markdown("---") 제거)
 
         if not df_park_counts.empty:
             plot_yearly_district_comparison(
                 df_park_counts,
-                metric_name_for_title="총 공원 수", # 명확한 제목 전달
+                metric_name_for_title="총 공원 수", # 제목 수정
                 selected_year_str=selected_year_str,
                 bar_color='mediumseagreen',
-                custom_xlabel="공원 수 (천㎡)" # 단위는 개소이지만, 요청대로 (천㎡)
+                custom_xlabel="공원 수 (천㎡)"
             )
         else: st.info(f"{selected_year_str}년 자치구별 공원 수 데이터가 없습니다.")
-        # 요청사항 2: 그래프 사이 선 제거 (st.markdown("---") 제거)
 
         if not df_park_counts.empty and not df_park_area.empty:
             df_park_counts_for_avg = df_park_counts.replace(0, np.nan)
@@ -372,7 +279,7 @@ def run_park_analysis_page():
                      df_avg_park_area = df_park_area.div(df_park_counts_for_avg).fillna(0)
                      plot_yearly_district_comparison(
                          df_avg_park_area,
-                         metric_name_for_title="1개소당 평균 면적", # 명확한 제목 전달
+                         metric_name_for_title="1개소당 평균 공원 면적", # "공원" 추가
                          selected_year_str=selected_year_str,
                          bar_color='lightcoral',
                          custom_xlabel="공원 평균 면적 (천㎡)"
@@ -383,7 +290,7 @@ def run_park_analysis_page():
         else: st.info(f"{selected_year_str}년 자치구별 공원 1개소당 평균 면적을 계산할 데이터가 부족합니다.")
 
     with tab2:
-        st.subheader(f"{selected_year_str}년 서울시 전체 현황") # 요청사항 3
+        st.subheader(f"{selected_year_str}년 서울시 전체 현황")
         if df_seoul_total_parks is not None and not df_seoul_total_parks.empty:
             plot_seoul_total_distribution(df_seoul_total_parks, selected_year_str)
         else:
@@ -391,12 +298,11 @@ def run_park_analysis_page():
 
 
     with tab3:
-        st.subheader(f"{selected_year_str}년도 지도 시각화") # 요청사항 5
+        st.subheader(f"{selected_year_str}년도 지도 시각화")
         map_metric_parks = st.selectbox("지도 표시 항목 선택:", ["총 공원 수", "총 공원 면적", "1개소당 평균 면적"], key="park_map_metric_sb_main_tab_v4")
 
         if seoul_geo_data_parks:
             park_map_to_display = None
-            # ... (create_choropleth_map 호출 부분은 이전과 동일하게 유지) ...
             if map_metric_parks == "총 공원 수":
                 if not df_park_counts.empty:
                     park_map_to_display = create_choropleth_map(df_park_counts, seoul_geo_data_parks, selected_year_str, "총 공원 수", "개소", "Greens")
@@ -409,24 +315,22 @@ def run_park_analysis_page():
 
             elif map_metric_parks == "1개소당 평균 면적":
                 if not df_park_counts.empty and not df_park_area.empty:
-                    df_park_counts_for_avg_map = df_park_counts.replace(0, np.nan) # 0을 NaN으로 바꿔서 0으로 나누는 오류 방지
-                    # selected_year_str 컬럼이 있는지, 그리고 모든 값이 NaN이 아닌지 확인
+                    df_park_counts_for_avg_map = df_park_counts.replace(0, np.nan)
                     if selected_year_str in df_park_counts_for_avg_map and not df_park_counts_for_avg_map[selected_year_str].isnull().all():
-                        # 분모가 될 수 있는 공원 수가 실제 0보다 큰 값이 있는지 확인
-                        if df_park_counts_for_avg_map[selected_year_str][df_park_counts_for_avg_map[selected_year_str] > 0].sum() > 0:
+                        if df_park_area.get(selected_year_str, pd.Series(dtype='float64')).sum() > 0 and \
+                           df_park_counts_for_avg_map.get(selected_year_str, pd.Series(dtype='float64'))[df_park_counts_for_avg_map.get(selected_year_str, pd.Series(dtype='float64')) > 0].sum() > 0 :
                             df_avg_park_area_map = df_park_area.div(df_park_counts_for_avg_map).fillna(0)
-                            park_map_to_display = create_choropleth_map(df_avg_park_area_map, seoul_geo_data_parks, selected_year_str, "1개소당 평균 면적", "천㎡/개소", "Oranges")
+                            park_map_to_display = create_choropleth_map(df_avg_park_area_map, seoul_geo_data_parks, selected_year_str, "1개소당 평균 공원 면적", "천㎡/개소", "Oranges")
                         else:
-                            st.info(f"{selected_year_str}년 유효한 공원 수가 없어 1개소당 평균 면적을 계산할 수 없습니다.")
+                            st.info(f"{selected_year_str}년 1개소당 평균 면적을 계산할 데이터(공원 면적 또는 공원 수)가 없어 지도를 생성할 수 없습니다.")
                     else:
                         st.info(f"{selected_year_str}년 공원 수 데이터가 없거나 모두 유효하지 않아 1개소당 평균 면적을 계산할 수 없습니다.")
                 else:
                     st.info(f"{selected_year_str}년 1개소당 평균 면적을 계산하기 위한 데이터가 부족합니다.")
 
-
             if park_map_to_display:
                 st_folium(park_map_to_display, width=800, height=600)
-            # elif 로 시작하는 불필요한 조건 제거 (위에서 이미 데이터 없음 메시지 처리)
+            # elif 로 시작하는 불필요한 조건 제거
         else:
             st.warning("GeoJSON 데이터가 로드되지 않아 지도를 표시할 수 없습니다.")
 
