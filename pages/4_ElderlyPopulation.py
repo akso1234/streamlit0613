@@ -193,7 +193,7 @@ def plot_district_elderly_ratio_change(df_districts, start_year_str, end_year_st
     sns.barplot(x=ratio_change_pp_sorted.index.get_level_values('구분_소'), 
                 y=ratio_change_pp_sorted.values, ax=ax,
                 label=f'{start_year_str}년 대비 {end_year_str}년 변화량 (p.p.)')
-    ax.set_title(f'서울시 자치구별 고령화율 변화량', fontsize=16)
+    ax.set_title(f'서울시 자치구별 고령화율 변화량)', fontsize=16)
     ax.set_xlabel('자치구', fontsize=12)
     ax.set_ylabel('고령화율 변화 (p.p.)', fontsize=12)
     plt.xticks(rotation=45, ha='right')
@@ -434,7 +434,10 @@ def run_elderly_population_page():
         plot_top_gu_dokgo_trend(df_gu_dokgo_s1923, year_cols_dokgo_s1923_from_data if year_cols_dokgo_s1923_from_data else [f"{y}년" for y in available_years_int], N=10)
 
     with main_tab3: # 자치구별 현황 비교
-        # 슬라이더를 탭 상단으로 이동
+        # 부제목을 슬라이더 위로 이동하고, st.session_state 값을 사용
+        st.subheader(f"{st.session_state.selected_year_elderly_tab3}년 자치구별 현황 비교") 
+
+        # 슬라이더
         selected_year_tab3_val = st.slider(
             "조회 연도 선택", 
             min_value=available_years_int[0],
@@ -447,26 +450,25 @@ def run_elderly_population_page():
             st.session_state.selected_year_elderly_tab3 = selected_year_tab3_val
             st.rerun()
         
-        st.subheader(f"{selected_year_tab3_val}년 자치구별 현황 비교") # 슬라이더 아래에 부제목
+        # st.subheader(f"{selected_year_tab3_val}년 자치구별 현황 비교") # 원래 이 위치에 있던 subheader는 위로 이동됨
         
-        current_selected_year_dokgo_format_tab3 = f"{selected_year_tab3_val}년"
-        current_selected_year_goryeong_format_tab3 = str(selected_year_tab3_val)
+        current_selected_year_dokgo_format_tab3 = f"{st.session_state.selected_year_elderly_tab3}년" # 슬라이더의 현재 값(세션상태) 사용
+        current_selected_year_goryeong_format_tab3 = str(st.session_state.selected_year_elderly_tab3) # 슬라이더의 현재 값(세션상태) 사용
         
         # 하위 탭 순서 변경 및 새 탭 추가
         sub_tab_gu0, sub_tab_gu1, sub_tab_gu_change, sub_tab_gu2, sub_tab_new_dokgo_ratio, sub_tab_gu3, sub_tab_gu5 = st.tabs([
-            "65세 이상 인구", # 새 탭 (맨 앞으로 이동)
+            "65세 이상 인구", 
             "고령화율", 
             "고령화율 변화량", 
             "독거노인 수", 
-            "서울시 전체 독거노인 비율", # 제목에서 (2023년) 제거
+            "서울시 전체 독거노인 비율",
             "노인 중 독거노인 비율", 
             "독거노인 지도"
         ])
         
-        with sub_tab_gu0: # 새로운 첫 번째 하위 탭
-            # st.markdown(f"#### {selected_year_tab3_val}년 자치구별 65세 이상 인구 수") # 소주제는 그래프 제목으로 처리
+        with sub_tab_gu0: 
             if not df_goryeong_districts_page.empty:
-                plot_district_elderly_population_latest(df_goryeong_districts_page, current_selected_year_goryeong_format_tab3) # 선택된 연도 사용
+                plot_district_elderly_population_latest(df_goryeong_districts_page, current_selected_year_goryeong_format_tab3) 
             else:
                 st.warning("자치구별 고령자 현황 데이터가 없어 그래프를 표시할 수 없습니다.")
 
@@ -475,7 +477,8 @@ def run_elderly_population_page():
         
         with sub_tab_gu_change:
             if not df_goryeong_districts_page.empty:
-                plot_district_elderly_ratio_change(df_goryeong_districts_page, '2019', current_selected_year_goryeong_format_tab3)
+                # 시작 연도는 고정, 종료 연도는 슬라이더 값 사용
+                plot_district_elderly_ratio_change(df_goryeong_districts_page, str(available_years_int[0]), current_selected_year_goryeong_format_tab3)
             else:
                 st.warning("자치구별 고령화율 변화량 데이터를 그릴 수 없습니다.")
 
@@ -483,10 +486,9 @@ def run_elderly_population_page():
             plot_dokgo_by_gu_yearly(df_gu_dokgo_s1923, current_selected_year_dokgo_format_tab3)
 
         with sub_tab_new_dokgo_ratio: 
-            # 이 탭은 항상 특정 연도(예: 2023)의 "서울시 전체" 비율을 보여줌
             st.markdown(f"#### 2023년 서울시 전체 65세 이상 인구 중 독거노인 비율") 
             if not seoul_total_goryeong_data_page.empty and df_seoul_total_s1923 is not None and not df_seoul_total_s1923.empty:
-                 plot_seoul_total_dokgo_ratio_pie(seoul_total_goryeong_data_page, df_seoul_total_s1923, '2023')
+                 plot_seoul_total_dokgo_ratio_pie(seoul_total_goryeong_data_page, df_seoul_total_s1923, '2023') # 이 탭은 항상 2023년 데이터 표시
             else:
                 st.info("서울시 전체 독거노인 비율 그래프를 표시하기 위한 데이터가 부족합니다.")
 
@@ -494,7 +496,7 @@ def run_elderly_population_page():
             plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_gu_dokgo_s1923, df_goryeong_districts_page, current_selected_year_dokgo_format_tab3)
         
         with sub_tab_gu5:
-            st.markdown(f"#### {selected_year_tab3_val}년 독거노인 현황 지도")
+            st.markdown(f"#### {st.session_state.selected_year_elderly_tab3}년 독거노인 현황 지도") # 지도 제목도 슬라이더 연동
             if seoul_geo_data_elderly:
                 dokgo_map_gu = create_dokgo_map_yearly(df_gu_dokgo_s1923, current_selected_year_dokgo_format_tab3, seoul_geo_data_elderly)
                 if dokgo_map_gu: st_folium(dokgo_map_gu, width=800, height=600)
