@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from utils import set_korean_font, load_csv 
 import os
-from matplotlib.ticker import PercentFormatter
+from matplotlib.ticker import PercentFormatter, FuncFormatter # FuncFormatter 추가
 
-# --- 데이터 전처리 함수 (이전과 동일) ---
+# --- 데이터 전처리 함수 (이전과 동일하게 유지) ---
 @st.cache_data
 def preprocess_rescue_data_cached(df_rescue_raw):
     if df_rescue_raw is None: 
@@ -218,7 +218,6 @@ def plot_gu_incident_counts(df_rescue):
         st.info("구별 총 사고 발생 건수 데이터를 그릴 수 없습니다.")
         return
 
-    # "서울특별시" 행이 있다면 제외
     df_rescue_filtered = df_rescue[df_rescue['발생장소_구'] != '서울특별시'].copy()
     if df_rescue_filtered.empty:
         st.info("자치구별 사고 건수 데이터가 없습니다 ('서울특별시' 제외 후).")
@@ -236,7 +235,7 @@ def plot_gu_incident_counts(df_rescue):
     ax.set_xlabel('자치구', fontsize=12)
     ax.set_ylabel('사고 건수 (개)', fontsize=12)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=10); ax.tick_params(axis='y', labelsize=10)
-    ax.grid(axis='y', linestyle='--', alpha=0.7); ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.grid(axis='y', linestyle='--', alpha=0.7); ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
     ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
@@ -260,7 +259,7 @@ def plot_stacked_bar_incident_causes_by_gu(df_rescue, top_n_causes=7):
     ax.set_ylabel('사고 건수 (개)', fontsize=12)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=10); ax.tick_params(axis='y', labelsize=10)
     ax.legend(title='사고원인', bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=9)
-    ax.grid(axis='y', linestyle='--', alpha=0.7); ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.grid(axis='y', linestyle='--', alpha=0.7); ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
     plt.tight_layout(rect=[0, 0, 0.88, 1]); st.pyplot(fig)
 
 def plot_pie_major_incident_causes(df_rescue, top_n=7):
@@ -304,7 +303,7 @@ def plot_correlation_scatter_ratio(merged_df, x_col_ratio, y_col_incident, title
     ax.set_ylabel(f'{selected_cause}건수 (건)', fontsize=12) 
     ax.grid(True, linestyle=':', alpha=0.6)
     ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0)) 
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
     ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
@@ -317,8 +316,8 @@ def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
     if bubble_sizes_data.nunique() <= 1: scaled_bubble_sizes = pd.Series([100] * len(bubble_sizes_data), index=bubble_sizes_data.index)
     else:
         denominator = bubble_sizes_data.max() - bubble_sizes_data.min()
-        if denominator == 0: denominator = 1e-9
-        scaled_bubble_sizes = (bubble_sizes_data - bubble_sizes_data.min()) / denominator * (max_bubble_size - min_bubble_size) + min_bubble_size
+        if denominator == 0: denominator = 1e-9 # 분모가 0이 되는 것 방지
+        scaled_bubble_sizes = min_bubble_size + (bubble_sizes_data - bubble_sizes_data.min()) / denominator * (max_bubble_size - min_bubble_size)
         scaled_bubble_sizes[bubble_sizes_data == 0] = min_bubble_size / 2
     
     scatter_plot = ax.scatter(x='고령인구비율', y='노후주택비율', s=scaled_bubble_sizes, c=df_final_merged[f'{target_cause_for_bubble}건수'], cmap='YlOrRd', alpha=0.7, edgecolors='grey', linewidth=0.5, data=df_final_merged, label='자치구별 데이터')
@@ -408,19 +407,28 @@ def plot_housing_elderly_ratio_comparison(df_housing, df_elderly):
 
     ordered_gus = df_merged_ratios.sort_values(by='노후주택비율', ascending=False)['발생장소_구'].tolist()
 
-    plt.figure(figsize=(18, 10))
+    fig, ax = plt.subplots(figsize=(18, 10))
+    
     sns.barplot(x='자치구', y='비율', hue='지표종류', data=df_plot_melted, order=ordered_gus,
-                palette={'노후주택비율':'coral', '고령인구비율':'skyblue'})
-    plt.title('서울시 구별 30년 이상 노후 주택 비율 및 고령 인구 비율 비교', fontsize=18, pad=20)
-    plt.xlabel('자치구', fontsize=14)
-    plt.ylabel('비율 (%)', fontsize=14)
-    plt.xticks(rotation=45, ha="right", fontsize=10)
-    plt.yticks(fontsize=10)
-    plt.gca().yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
-    plt.legend(title='지표 종류', fontsize=11, title_fontsize=12)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    st.pyplot(plt)
+                palette={'노후주택비율':'coral', '고령인구비율':'skyblue'}, ax=ax)
+    
+    ax.set_title('서울시 구별 30년 이상 노후 주택 비율 및 고령 인구 비율 비교', fontsize=18, pad=20) # 제목 추가
+    ax.set_xlabel('자치구', fontsize=14)
+    ax.set_ylabel('비율 (%)', fontsize=14)
+    ax.tick_params(axis='x', rotation=45, labelsize=10) # x축 레이블 회전 및 크기
+    ax.tick_params(axis='y', labelsize=10) # y축 레이블 크기
+    
+    ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
+
+    if not df_plot_melted['비율'].empty: # Y축 범위 설정
+        max_ratio = df_plot_melted['비율'].max()
+        ax.set_ylim(0, max_ratio * 1.15 if max_ratio > 0 else 0.1) # 15% 여유분 또는 최소 0.1
+
+    ax.legend(title='지표 종류', fontsize=11, title_fontsize=12)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    fig.tight_layout() # plt.tight_layout() 대신 fig 객체 사용
+    st.pyplot(fig)
 
 
 # --- Streamlit 페이지 레이아웃 ---
@@ -428,6 +436,7 @@ def run_housing_safety_page():
     st.title("주거 안전사고와 노후 주택 현황")
     set_korean_font()
 
+    # 데이터 로드
     df_rescue_raw = load_csv("data/서울특별시_구조활동현황.csv")
     df_elderly_raw_h = load_csv("data/고령자현황_20250531210628.csv", header_config=[0,1,2,3])
     df_housing_raw_h = load_csv("data/노후기간별+주택현황_20250601054647.csv", header_config=[0,1,2])
@@ -435,6 +444,7 @@ def run_housing_safety_page():
     if df_rescue_raw is None or df_elderly_raw_h is None or df_housing_raw_h is None:
         st.error("필수 데이터 파일을 로드하지 못했습니다. 'data' 폴더 내용을 확인해주세요."); return
 
+    # 데이터 전처리
     df_rescue_processed = preprocess_rescue_data_cached(df_rescue_raw)
     df_elderly_processed_h = preprocess_elderly_data_for_housing_cached(df_elderly_raw_h)
     df_housing_processed_h = preprocess_housing_data_cached(df_housing_raw_h)
@@ -443,6 +453,7 @@ def run_housing_safety_page():
     if df_elderly_processed_h is None or df_elderly_processed_h.empty: st.error("고령자 현황 데이터 처리 실패."); return
     if df_housing_processed_h is None or df_housing_processed_h.empty: st.error("노후 주택 현황 데이터 처리 실패."); return
 
+    # 탭 구성
     tab_titles_ordered = ["구별 사고 건수", "구별 사고 원인", "주요 사고 원인", "시간대별 사고", "노후주택 및 고령인구 비율", "상관관계 분석", "통합 상관관계 분석"]
     tabs = st.tabs(tab_titles_ordered)
 
@@ -452,12 +463,12 @@ def run_housing_safety_page():
 
     with tabs[1]: 
         st.subheader(tab_titles_ordered[1])
-        top_n_causes_stacked = st.slider("표시할 상위 사고원인 개수:", 3, 15, 7, key="stacked_bar_top_n_slider_housing_main_v4")
+        top_n_causes_stacked = st.slider("표시할 상위 사고원인 개수:", 3, 15, 7, key="stacked_bar_top_n_slider_housing_main_v5")
         plot_stacked_bar_incident_causes_by_gu(df_rescue_processed, top_n_causes=top_n_causes_stacked)
 
     with tabs[2]: 
         st.subheader(tab_titles_ordered[2])
-        top_n_causes_pie = st.slider("표시할 상위 사고원인 개수:", 3, 10, 7, key="pie_chart_top_n_slider_housing_main_v4")
+        top_n_causes_pie = st.slider("표시할 상위 사고원인 개수:", 3, 10, 7, key="pie_chart_top_n_slider_housing_main_v5")
         plot_pie_major_incident_causes(df_rescue_processed, top_n=top_n_causes_pie)
 
     with tabs[3]: 
@@ -483,7 +494,7 @@ def run_housing_safety_page():
                         ax_time.set_xlabel('신고 시간 (0시 ~ 23시)', fontsize=12)
                         ax_time.set_ylabel('사고 건수 (개)', fontsize=12)
                         ax_time.set_xticks(ticks=range(0, 24)); ax_time.grid(True, linestyle='--', alpha=0.7)
-                        ax_time.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+                        ax_time.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
                         ax_time.legend(fontsize=10)
                         plt.tight_layout(); st.pyplot(fig_time)
                     else: st.info("시간대별 사고 발생 추이 분석을 위한 데이터가 부족합니다 (집계 후 데이터 없음).")
@@ -491,11 +502,9 @@ def run_housing_safety_page():
             else: st.info("구조활동 데이터의 '신고시각'을 유효한 시간 형식으로 변환하는데 실패했습니다.")
         else: st.info("구조활동 데이터에 '신고시각' 컬럼이 없어 시간대별 분석을 수행할 수 없습니다.")
     
-    with tabs[4]: # 새로운 탭: 노후주택 및 고령인구 비율
+    with tabs[4]: 
         st.subheader(tab_titles_ordered[4])
-        # 이전에 생성한 df_housing_processed_h와 df_elderly_processed_h를 사용
-        plot_housing_elderly_ratio_comparison(df_housing_processed_h, df_elderly_processed_h)
-
+        plot_housing_elderly_ratio_comparison(df_housing_processed_h, df_elderly_processed_h) # 수정된 함수 호출
 
     with tabs[5]: 
         st.subheader(tab_titles_ordered[5])
@@ -509,7 +518,7 @@ def run_housing_safety_page():
                 "상관관계 분석 사고 원인:", 
                 unique_causes_list_h_corr_ratio, 
                 index=default_idx_corr_ratio, 
-                key="corr_ratio_cause_select_housing_v4"
+                key="corr_ratio_cause_select_housing_v5"
             )
             
             if selected_cause_corr_ratio:
@@ -555,7 +564,7 @@ def run_housing_safety_page():
             "버블/히트맵 기준 사고 원인:",
             unique_causes_list_h_bubble_ratio, 
             index=default_idx_bubble_ratio, 
-            key="bubble_ratio_cause_select_housing_v4"
+            key="bubble_ratio_cause_select_housing_v5"
         )
         
         if cause_for_bubble_ratio:
