@@ -4,8 +4,8 @@ import streamlit as st
 import altair as alt # Altair 예시 함수를 위해 유지
 import pandas as pd
 import numpy as np
-import seaborn as sns # seaborn 임포트 확인
-from matplotlib.ticker import FuncFormatter # FuncFormatter 임포트 확인
+import seaborn as sns 
+from matplotlib.ticker import FuncFormatter
 
 # ——————————————————————————————————————————————————
 # 한글 폰트 설정 (Matplotlib용)
@@ -273,7 +273,7 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
         data=df_to_plot,
         x='질환명',
         y='총 노인 환자수',
-        hue='연도' # 연도별로 다른 색상으로 그룹화
+        hue='연도'
         # palette='viridis' # 색상 팔레트 지정 제거 (기본 색상 사용)
     )
 
@@ -288,7 +288,6 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
     ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
     plt.tight_layout(rect=[0,0,0.9,1]) 
     st.pyplot(plt)
-
 
 # --- Welfare Facilities Charts ---
 def draw_sheet0_charts(
