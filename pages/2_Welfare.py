@@ -1,130 +1,166 @@
-import os
 import streamlit as st
-from data_loader import (
-    load_nursing_sheet0,
-    load_nursing_sheet1,
-    load_nursing_csv,
-    load_nursing_sheet3,
-    load_nursing_sheet4,
-    load_nursing_sheet5
+from utils import load_csv, load_excel_sheets, set_korean_font # 유틸리티 함수 로드
+from data_processing import ( # 데이터 처리 함수 로드
+    extract_sheet0_metrics, extract_sheet1_metrics,
+    extract_nursing_csv_metrics, extract_sheet3_metrics,
+    extract_sheet4_metrics, extract_sheet5_metrics
 )
-from chart_utils import (
-    draw_sheet0_charts,
-    draw_sheet1_charts,
-    draw_nursing_csv_charts,
-    draw_sheet3_charts,
-    draw_sheet4_charts,
-    draw_sheet5_charts
+from chart_utils import ( # 차트 생성 함수 로드
+    draw_sheet0_charts, draw_sheet1_charts,
+    draw_nursing_csv_charts, draw_sheet3_charts,
+    draw_sheet4_charts, draw_sheet5_charts
 )
+import pandas as pd # pandas 직접 사용이 필요한 경우
 
-from utils import set_korean_font
+def run_welfare_facilities_page():
+    set_korean_font() # 한글 폰트 설정
+    st.title("🧓 서울시 노인 복지시설 현황")
 
-set_korean_font()
+    # --- 데이터 로드 ---
+    excel_file_path = "data/서울시_노인복지시설.xlsx"
+    csv_file_path = "data/서울시_노인여가복지시설(경로당, 노인교실, 노인복지관)_현황.csv"
 
-# 복지시설 데이터를 읽을 때 필요한 'districts' 리스트
-districts = [
-    "종로구","중구","용산구","성동구","광진구","동대문구","중랑구","성북구",
-    "강북구","도봉구","노원구","은평구","서대문구","마포구","양천구","강서구",
-    "구로구","금천구","영등포구","동작구","관악구","서초구","강남구","송파구","강동구"
-]
+    # 엑셀 파일 로드 (모든 시트)
+    all_sheets_data = load_excel_sheets(excel_file_path)
+    # CSV 파일 로드
+    csv_data = load_csv(csv_file_path)
 
-def run_welfare_page():
-    st.title("복지시설 관련 대시보드")
-
-    # ---------------------------------------------------
-    # 1) 세션 상태에 'selected_year' 초기 값 설정
-    # ---------------------------------------------------
+    # --- 연도 선택 슬라이더 ---
+    available_years = [2020, 2021, 2022, 2023] # 사용 가능한 연도 목록
     if "selected_year_welfare" not in st.session_state:
-        st.session_state.selected_year_welfare = 2023  # 기본 연도
+        st.session_state.selected_year_welfare = available_years[-1] # 기본값: 가장 최근 연도
 
-    # ---------------------------------------------------
-    # 2) 메인 화면 상단에 '연도 선택' 슬라이더 배치
-    # ---------------------------------------------------
-    selected_year = st.slider(
-        label="조회 연도 선택",
-        min_value=2019,
-        max_value=2023,
+    selected_year = st.sidebar.slider(
+        "조회 연도 선택",
+        min_value=min(available_years),
+        max_value=max(available_years),
+        value=st.session_state.selected_year_welfare,
         step=1,
-        value=st.session_state.selected_year_welfare
+        key="welfare_year_slider"
     )
-    # 슬라이더를 움직일 때마다 세션 갱신
-    if selected_year != st.session_state.selected_year_welfare:
-        st.session_state.selected_year_welfare = selected_year
-
-    # ---------------------------------------------------
-    # 3) 연도별 파일 경로 생성 및 존재 여부 체크
-    # ---------------------------------------------------
-    excel_path = f"data/{selected_year}nursing.xlsx"
-    csv_path   = f"data/{selected_year}nursing.csv"
-
-    missing = False
-    if not os.path.isfile(excel_path):
-        st.error(f"❌ 엑셀 파일을 찾을 수 없습니다: {excel_path}")
-        missing = True
-    if not os.path.isfile(csv_path):
-        st.error(f"❌ CSV 파일을 찾을 수 없습니다: {csv_path}")
-        missing = True
-
-    if missing:
-        st.warning("올바른 연도별 파일을 `data/` 폴더에 배치했는지 확인하세요.")
-        return
-
-    # ---------------------------------------------------
-    # 4) 탭(Tab) 구성: 총 6개 탭 생성
-    # ---------------------------------------------------
-    tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "주거복지시설",
-        "의료복지시설",
-        "여가복지시설",
-        "재가노인복지시설",
-        "노인일자리지원기관",
-        "치매전담형장기요양"
-    ])
-
-    # ----------------------
-    # Tab 0: 주거복지시설 (Sheet0)
-    # ----------------------
-    with tab0:
-        df0 = load_nursing_sheet0(excel_path, districts)
-        draw_sheet0_charts(df0)
-
-    # ----------------------
-    # Tab 1: 의료복지시설 (Sheet1)
-    # ----------------------
-    with tab1:
-        df1 = load_nursing_sheet1(excel_path, districts)
-        draw_sheet1_charts(df1)
-
-    # ----------------------
-    # Tab 2: 여가복지시설 (CSV)
-    # ----------------------
-    with tab2:
-        df_welf, df_centers = load_nursing_csv(csv_path, districts)
-        draw_nursing_csv_charts(df_welf, df_centers)
-
-    # ----------------------
-    # Tab 3: 재가노인복지시설 (Sheet3)
-    # ----------------------
-    with tab3:
-        df3 = load_nursing_sheet3(excel_path, districts)
-        draw_sheet3_charts(df3)
-
-    # ----------------------
-    # Tab 4: 노인일자리지원기관 (Sheet4)
-    # ----------------------
-    with tab4:
-        df4 = load_nursing_sheet4(excel_path, districts)
-        draw_sheet4_charts(df4)
-
-    # ----------------------
-    # Tab 5: 치매전담형장기요양 (Sheet5)
-    # ----------------------
-    with tab5:
-        df5 = load_nursing_sheet5(excel_path, districts)
-        draw_sheet5_charts(df5)
+    st.session_state.selected_year_welfare = selected_year
+    st.sidebar.info(f"선택된 연도: **{selected_year}년**")
 
 
-# Streamlit 멀티페이지 사용 시, 이 파일을 pages 폴더에 넣으면
-# 사이드바에 “Welfare” 메뉴가 자동 생성됩니다.
+    # --- 데이터 처리 ---
+    # 각 시트 및 CSV 데이터에 대해 연도별 데이터 추출
+    df_sheet0 = extract_sheet0_metrics(all_sheets_data.get('0.노인주거복지시설'), selected_year)
+    df_sheet1 = extract_sheet1_metrics(all_sheets_data.get('1.노인의료복지시설'), selected_year)
+    
+    # 여가복지시설(CSV) 데이터 처리
+    df_welf_csv, df_centers_csv = extract_nursing_csv_metrics(csv_data, selected_year)
+
+    df_sheet3 = extract_sheet3_metrics(all_sheets_data.get('3.재가노인복지시설'), selected_year)
+    df_sheet4 = extract_sheet4_metrics(all_sheets_data.get('4.노인일자리지원기관'), selected_year)
+    df_sheet5 = extract_sheet5_metrics(all_sheets_data.get('5.치매전담형 장기요양기관'), selected_year)
+
+
+    # --- 탭 구성 ---
+    tab_titles = [
+        "주거복지시설", "의료복지시설", "여가복지시설(CSV)",
+        "재가노인복지시설", "노인일자리지원기관", "치매전담형장기요양"
+    ]
+    tabs = st.tabs(tab_titles)
+
+    with tabs[0]:
+        st.subheader(f"{selected_year}년 노인주거복지시설 현황")
+        if df_sheet0 is not None and not df_sheet0.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원·추가 수용 가능 인원")
+            draw_sheet0_charts(df_sheet0)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet0.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet0.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '0.노인주거복지시설'이 없습니다.")
+
+    with tabs[1]:
+        st.subheader(f"{selected_year}년 노인의료복지시설 현황")
+        if df_sheet1 is not None and not df_sheet1.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원·추가 수용 가능 인원")
+            draw_sheet1_charts(df_sheet1)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet1.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet1.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '1.노인의료복지시설'이 없습니다.")
+
+    with tabs[2]:
+        st.subheader(f"{selected_year}년 노인여가복지시설(CSV) 현황")
+        display_welf = False
+        if df_welf_csv is not None and not df_welf_csv.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 노인복지관 현황")
+            # draw_nursing_csv_charts 핸들러는 내부적으로 df_welf_csv와 df_centers_csv를 모두 받음
+            # 여기서는 노인복지관 부분만 명시적으로 언급
+            display_welf = True
+        else:
+            st.info(f"{selected_year}년 노인복지관(CSV) 데이터를 찾을 수 없습니다.")
+
+        display_centers = False
+        if df_centers_csv is not None and not df_centers_csv.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 경로당 및 노인교실 현황")
+            # draw_nursing_csv_charts 핸들러는 내부적으로 df_welf_csv와 df_centers_csv를 모두 받음
+            # 여기서는 경로당/노인교실 부분만 명시적으로 언급
+            display_centers = True
+        else:
+            st.info(f"{selected_year}년 경로당 및 노인교실(CSV) 데이터를 찾을 수 없습니다.")
+        
+        if display_welf or display_centers:
+            draw_nursing_csv_charts(df_welf_csv, df_centers_csv) # 차트 함수는 두 DF를 모두 받아 알아서 처리
+        
+        st.markdown(f"---")
+        if display_welf:
+            st.markdown(f"#### {selected_year}년 노인복지관 상세 데이터 테이블")
+            st.dataframe(df_welf_csv.style.format("{:,.0f}").set_properties(**{'text-align': 'right'}), use_container_width=True)
+        if display_centers:
+            st.markdown(f"#### {selected_year}년 경로당 및 노인교실 상세 데이터 테이블")
+            st.dataframe(df_centers_csv.style.format("{:,.0f}").set_properties(**{'text-align': 'right'}), use_container_width=True)
+
+
+    with tabs[3]:
+        st.subheader(f"{selected_year}년 재가노인복지시설 현황")
+        if df_sheet3 is not None and not df_sheet3.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원 인원수")
+            draw_sheet3_charts(df_sheet3)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet3.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet3.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '3.재가노인복지시설'이 없습니다.")
+
+    with tabs[4]:
+        st.subheader(f"{selected_year}년 노인일자리지원기관 현황")
+        if df_sheet4 is not None and not df_sheet4.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 시설수 및 종사자수")
+            draw_sheet4_charts(df_sheet4)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet4.style.format("{:,.0f}").set_properties(**{'text-align': 'right'}), use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '4.노인일자리지원기관'이 없습니다.")
+
+    with tabs[5]:
+        st.subheader(f"{selected_year}년 치매전담형 장기요양기관 현황")
+        if df_sheet5 is not None and not df_sheet5.empty:
+            st.markdown(f"#### {selected_year}년 자치구별 정원·현원·추가 수용 가능 인원")
+            draw_sheet5_charts(df_sheet5)
+            st.markdown(f"---")
+            st.markdown(f"#### {selected_year}년 상세 데이터 테이블")
+            st.dataframe(df_sheet5.style.format("{:,.0f}", subset=pd.IndexSlice[:, df_sheet5.columns.difference(['cap_per_staff', 'occ_per_staff'])])
+                                     .format("{:,.1f}", subset=['cap_per_staff', 'occ_per_staff'])
+                                     .set_properties(**{'text-align': 'right'}),
+                         use_container_width=True)
+        else:
+            st.info(f"{selected_year}년 데이터를 찾을 수 없거나, 시트 '5.치매전담형 장기요양기관'이 없습니다.")
+
+
 if __name__ == "__main__":
-    run_welfare_page()
+    run_welfare_facilities_page()
