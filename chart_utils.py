@@ -115,7 +115,7 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
         else:
             avg_beds_dict[t] = 0.0
 
-    bar_colors = {'병원 수 (개)': 'mediumseagreen', '병상 수 (개)': 'cornflowerblue', '평균 병상 수 (개)': 'lightcoral'}
+    bar_colors = {'병원 수': 'mediumseagreen', '병상 수': 'cornflowerblue', '평균 병상 수': 'lightcoral'}
 
     sorted_total_hosp = sorted(total_hosp_dict.items(), key=lambda item: item[1], reverse=True)
     sorted_total_hosp_keys = [item[0] for item in sorted_total_hosp]
@@ -132,7 +132,7 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     fig_hosp, ax_hosp = plt.subplots(figsize=(8, 4.5))
     ax_hosp.bar(sorted_total_hosp_keys, sorted_total_hosp_values, color=bar_colors['병원 수'], label='병원 수')
     ax_hosp.set_title('의료기관 유형별 전체 병원 수', fontsize=15)
-    ax_hosp.set_ylabel('병원 수', fontsize=12)
+    ax_hosp.set_ylabel('병원 수 (개)', fontsize=12)
     ax_hosp.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(rotation=45, ha="right", fontsize=10); plt.yticks(fontsize=10)
     ax_hosp.grid(axis='y', linestyle=':', alpha=0.6)
@@ -143,7 +143,7 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     fig_beds, ax_beds = plt.subplots(figsize=(8, 4.5))
     ax_beds.bar(sorted_total_beds_keys, sorted_total_beds_values, color=bar_colors['병상 수'], label='병상 수')
     ax_beds.set_title('의료기관 유형별 전체 병상 수', fontsize=15)
-    ax_beds.set_ylabel('병상 수', fontsize=12)
+    ax_beds.set_ylabel('병상 수 (개)', fontsize=12)
     ax_beds.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(rotation=45, ha="right", fontsize=10); plt.yticks(fontsize=10)
     ax_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
@@ -155,7 +155,7 @@ def draw_aggregate_hospital_bed_charts(df_hosp: pd.DataFrame, df_beds: pd.DataFr
     fig_avg_beds, ax_avg_beds = plt.subplots(figsize=(8, 4.5))
     ax_avg_beds.bar(sorted_avg_beds_keys, sorted_avg_beds_values, color=bar_colors['평균 병상 수'], label='평균 병상 수')
     ax_avg_beds.set_title('의료기관 유형별 병원당 평균 병상 수', fontsize=15)
-    ax_avg_beds.set_ylabel('평균 병상 수', fontsize=12)
+    ax_avg_beds.set_ylabel('평균 병상 수 (개)', fontsize=12)
     ax_avg_beds.set_xlabel('기관 유형', fontsize=12)
     plt.xticks(rotation=45, ha="right", fontsize=10); plt.yticks(fontsize=10)
     ax_avg_beds.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.1f}'))
