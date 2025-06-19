@@ -260,6 +260,7 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
     st.pyplot(fig)
     return df_avg
 
+
 def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
     if all_years_summary_df is None or all_years_summary_df.empty:
         st.info("연도별/질환별 환자수 비교를 위한 데이터가 없습니다.")
@@ -269,25 +270,23 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
 
     plt.figure(figsize=(18, 9))
 
-    # 방법 1: palette 인자 완전 제거 (Seaborn 기본 동작에 맡김)
+    # '연도'의 고유값 개수에 맞춰 색상 팔레트 선택
+    num_hues = df_to_plot['연도'].nunique()
+
+    # 명시적으로 카테고리형 팔레트 지정 (예: 'tab10' 또는 'Set2')
+    # 'tab10'은 최대 10개의 구별되는 색상을 제공합니다. 연도 수가 10개 이하면 적합합니다.
+    # 연도 수가 10개를 넘어가면 'tab20' 또는 다른 팔레트를 고려하거나,
+    # 색상이 반복될 수 있음을 인지해야 합니다.
+    # 여기서는 최대 5개 연도(2019-2023)이므로 'tab10'이 충분합니다.
+    palette_to_use = sns.color_palette("tab10", n_colors=num_hues)
+
     sns.barplot(
         data=df_to_plot,
         x='질환명',
         y='총 노인 환자수',
-        hue='연도'
-        # palette 인자 없음
+        hue='연도',
+        palette=palette_to_use  # <<< 명시적으로 카테고리형 팔레트 지정
     )
-
-    # 방법 2: (만약 방법 1이 여전히 보라색이면 시도) Seaborn의 기본 'deep' 팔레트 명시적 사용
-    # num_hues = df_to_plot['연도'].nunique() # '연도'의 고유값 개수만큼 색상 필요
-    # current_palette = sns.color_palette("deep", n_colors=num_hues) # 기본 'deep' 팔레트 사용
-    # sns.barplot(
-    #     data=df_to_plot,
-    #     x='질환명',
-    #     y='총 노인 환자수',
-    #     hue='연도',
-    #     palette=current_palette # 명시적으로 기본 팔레트 지정
-    # )
 
     plt.title('서울시 연도별/질환별 노인 환자수 비교', fontsize=16, pad=15)
     plt.xlabel('질환명', fontsize=12)
