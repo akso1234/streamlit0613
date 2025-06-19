@@ -202,36 +202,50 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
         st.info("평균 병상 수 계산 결과가 비어 히트맵을 그릴 수 없습니다.")
         return None
 
-    fig, ax = plt.subplots(figsize=(10, 12 if len(df_avg.index) > 15 else 9), dpi=120)
+    # --- START OF MODIFICATION for horizontal heatmap ---
+    df_avg_T = df_avg.T  # Transpose the DataFrame
+
+    if df_avg_T.empty:
+        st.info("전치된 평균 병상 수 계산 결과가 비어 히트맵을 그릴 수 없습니다.")
+        return None
+
+    # Adjust figsize for horizontal orientation (width, height)
+    fig, ax = plt.subplots(figsize=(18, 7), dpi=120) 
+    # --- END OF MODIFICATION for horizontal heatmap ---
 
     cmap = plt.cm.get_cmap("Blues", 10)
     cmap.set_bad(color='whitesmoke')
 
+    # Use original df_avg.values for scale calculation, as values themselves don't change with transpose
     valid_data_for_scale = df_avg.values[~np.isnan(df_avg.values) & ~np.isinf(df_avg.values)]
     vmin_val = 0
     vmax_val = np.max(valid_data_for_scale) if valid_data_for_scale.size > 0 else 1
-    if vmin_val == vmax_val and valid_data_for_scale.size > 0:
+    if vmin_val == vmax_val and valid_data_for_scale.size > 0 : # Handle case where all valid values are the same
         vmax_val = vmin_val + 1
 
+
     im = ax.imshow(
-        df_avg.values,
+        df_avg_T.values,  # Use transposed data
         cmap=cmap,
         aspect="auto",
         vmin=vmin_val,
         vmax=vmax_val
     )
 
-    ax.set_xticks(np.arange(len(df_avg.columns)))
-    ax.set_xticklabels(df_avg.columns, fontsize=11, fontweight='bold')
-    ax.set_yticks(np.arange(len(df_avg.index)))
-    ax.set_yticklabels(df_avg.index, fontsize=10)
-    ax.set_xlabel("기관 유형", fontsize=13, fontweight='bold', labelpad=10)
-    ax.set_ylabel("자치구", fontsize=13, fontweight='bold', labelpad=10)
+    # --- START OF MODIFICATION for horizontal heatmap ---
+    ax.set_xticks(np.arange(len(df_avg_T.columns))) # X-axis: Districts (gu)
+    ax.set_xticklabels(df_avg_T.columns, rotation=45, ha="right", fontsize=9) # X-axis labels: District names
+    ax.set_yticks(np.arange(len(df_avg_T.index)))   # Y-axis: Facility types
+    ax.set_yticklabels(df_avg_T.index, fontsize=10, fontweight='bold') # Y-axis labels: Facility type names
+    
+    ax.set_xlabel("자치구", fontsize=13, fontweight='bold', labelpad=10) # X-axis title
+    ax.set_ylabel("기관 유형", fontsize=13, fontweight='bold', labelpad=10) # Y-axis title
     ax.set_title("서울시 자치구별 기관 유형별 평균 병상 수", fontsize=16, fontweight='bold', pad=15)
 
-    for i in range(len(df_avg.index)):
-        for j in range(len(df_avg.columns)):
-            val = df_avg.iloc[i, j]
+    # Loop through transposed data for text annotations
+    for i in range(len(df_avg_T.index)):   # Rows: Facility types
+        for j in range(len(df_avg_T.columns)): # Columns: Districts (gu)
+            val = df_avg_T.iloc[i, j]
             text_to_display = "-"
             if pd.notna(val) and not np.isinf(val):
                 text_to_display = f"{val:.1f}"
@@ -240,15 +254,19 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
             text_color = "black"
             if pd.notna(cell_color_value) and not np.isinf(cell_color_value) and vmax_val > vmin_val :
                 normalized_val = (cell_color_value - vmin_val) / (vmax_val - vmin_val)
-                if normalized_val > 0.55:
+                if normalized_val > 0.55: # If cell color is dark
                     text_color = "white"
-
-            ax.text(j, i, text_to_display,
+            
+            # ax.text(x_coord, y_coord, text, ...)
+            ax.text(j, i, text_to_display, 
                     ha="center", va="center",
                     color=text_color, fontsize=9, fontweight='normal')
 
-    ax.set_xticks(np.arange(len(df_avg.columns) + 1) - 0.5, minor=True)
-    ax.set_yticks(np.arange(len(df_avg.index) + 1) - 0.5, minor=True)
+    # Adjust grid lines for transposed data
+    ax.set_xticks(np.arange(len(df_avg_T.columns) + 1) - 0.5, minor=True) # Vertical grid lines (for districts)
+    ax.set_yticks(np.arange(len(df_avg_T.index) + 1) - 0.5, minor=True)   # Horizontal grid lines (for facility types)
+    # --- END OF MODIFICATION for horizontal heatmap ---
+
     ax.grid(which="minor", color="grey", linestyle='-', linewidth=0.5)
     ax.tick_params(which="minor", bottom=False, left=False)
 
@@ -258,7 +276,7 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
 
     plt.tight_layout(pad=0.5)
     st.pyplot(fig)
-    return df_avg
+    return df_avg_T # Return transposed data if needed elsewhere, or df_avg
 
 
 def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
@@ -270,14 +288,7 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
 
     plt.figure(figsize=(18, 9))
 
-    # '연도'의 고유값 개수에 맞춰 색상 팔레트 선택
     num_hues = df_to_plot['연도'].nunique()
-
-    # 명시적으로 카테고리형 팔레트 지정 (예: 'tab10' 또는 'Set2')
-    # 'tab10'은 최대 10개의 구별되는 색상을 제공합니다. 연도 수가 10개 이하면 적합합니다.
-    # 연도 수가 10개를 넘어가면 'tab20' 또는 다른 팔레트를 고려하거나,
-    # 색상이 반복될 수 있음을 인지해야 합니다.
-    # 여기서는 최대 5개 연도(2019-2023)이므로 'tab10'이 충분합니다.
     palette_to_use = sns.color_palette("tab10", n_colors=num_hues)
 
     sns.barplot(
@@ -285,7 +296,7 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
         x='질환명',
         y='총 노인 환자수',
         hue='연도',
-        palette=palette_to_use  # <<< 명시적으로 카테고리형 팔레트 지정
+        palette=palette_to_use
     )
 
     plt.title('서울시 연도별/질환별 노인 환자수 비교', fontsize=16, pad=15)
