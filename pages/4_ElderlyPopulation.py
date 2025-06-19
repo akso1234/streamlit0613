@@ -219,6 +219,7 @@ def plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data, selected_goryeo
     except KeyError: st.warning(f"{selected_goryeong_year_str}년 노인 성별 데이터 컬럼을 고령자현황 데이터에서 찾을 수 없습니다."); return
     fig, ax = plt.subplots(figsize=(7, 7))
     pie_labels = [f'남자 ({male_pop:,}명)', f'여자 ({female_pop:,}명)']
+    pie_legend = [f'남자', f'여자']
     ax.pie([male_pop, female_pop], explode=(0, 0.05), labels=pie_labels,
             colors=['skyblue', 'lightcoral'], autopct='%1.1f%%', shadow=True, startangle=140, textprops={'fontsize': 11})
     ax.set_title(f'{selected_goryeong_year_str}년 서울시 65세 이상 인구 성별 분포', fontsize=15); ax.axis('equal')
