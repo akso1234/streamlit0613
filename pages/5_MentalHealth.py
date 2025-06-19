@@ -252,7 +252,7 @@ def run_mental_health_page():
         "조울증": "data/지역별 조울증 진료현황(2019년~2023년).csv",
         "조현병": "data/지역별 조현병 진료현황(2019년~2023년).csv"
     }
-    elderly_population_file_path = 'data/고령자현황_20250531210628.csv'
+    elderly_population_file_path = 'data/elderly_status_20250531210628.csv'
     
     elderly_age_groups_mental = ['60~69세', '70~79세', '80~89세', '90~99세', '100세 이상']
     available_years_for_mental_analysis = [2019, 2020, 2021, 2022, 2023]
