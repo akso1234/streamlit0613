@@ -1,3 +1,5 @@
+--- START OF FILE 6_HousingSafety (3).py ---
+
 # --- START OF 6_HousingSafety.py ---
 import streamlit as st
 import pandas as pd
@@ -411,31 +413,29 @@ def plot_housing_elderly_ratio_comparison(df_housing, df_elderly):
         st.info("병합된 노후 주택 및 고령 인구 비율 데이터가 없습니다.")
         return
 
-    # '발생장소_구' 컬럼을 사용하여 정렬된 구 이름 리스트를 생성합니다.
-    # 이 리스트는 나중에 melt된 데이터프레임의 '자치구' 컬럼 순서를 지정하는 데 사용됩니다.
     ordered_gu_names_for_plot = df_merged_ratios.sort_values(by='노후주택비율', ascending=False)['발생장소_구'].tolist()
 
     df_plot_melted = df_merged_ratios.melt(
-        id_vars='발생장소_구', # melt의 기준 컬럼은 '발생장소_구'
+        id_vars='발생장소_구',
         value_vars=['노후주택비율', '고령인구비율'],
         var_name='지표종류',
         value_name='비율'
     )
-    # melt 이후 '발생장소_구' 컬럼을 '자치구'로 변경합니다.
     df_plot_melted.rename(columns={'발생장소_구': '자치구'}, inplace=True)
 
     fig, ax = plt.subplots(figsize=(18, 10))
 
-    # sns.barplot에서 x축은 '자치구' (df_plot_melted의 컬럼)
-    # order 인자는 이 '자치구' 컬럼의 순서를 지정하며, ordered_gu_names_for_plot (원래 '발생장소_구' 이름들의 리스트)를 사용합니다.
     sns.barplot(x='자치구', y='비율', hue='지표종류', data=df_plot_melted, order=ordered_gu_names_for_plot,
                 palette={'노후주택비율':'coral', '고령인구비율':'skyblue'}, ax=ax)
 
     ax.set_title('서울시 구별 30년 이상 노후 주택 비율 및 고령 인구 비율 비교', fontsize=18, pad=20)
     ax.set_xlabel('자치구', fontsize=14)
     ax.set_ylabel('비율 (%)', fontsize=14)
-    ax.tick_params(axis='x', rotation=45, labelsize=10, ha="right") # ha="right" 추가
-    ax.tick_params(axis='y', labelsize=10)
+    
+    ax.tick_params(axis='x', labelsize=10) # x축 레이블 크기 설정
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right") # x축 레이블 회전 및 정렬 설정
+    
+    ax.tick_params(axis='y', labelsize=10) # y축 레이블 크기
 
     ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
 
