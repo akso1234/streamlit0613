@@ -243,7 +243,7 @@ def run_mental_health_page():
         "조현병": "data/지역별 조현병 진료현황(2019년~2023년).csv"
     }
     # 실제 파일명으로 수정 (예시)
-    elderly_population_file_path = 'data/elderly_status_20250531.csv' # 예시 파일명, 실제 사용하는 파일명으로 변경하세요.
+    elderly_population_file_path = 'data/elderly_status_20250531210628.csv' # 예시 파일명, 실제 사용하는 파일명으로 변경하세요.
     
     elderly_age_groups_mental = ['60~69세', '70~79세', '80~89세', '90~99세', '100세 이상']
     available_years_for_mental_analysis = [2019, 2020, 2021, 2022, 2023]
