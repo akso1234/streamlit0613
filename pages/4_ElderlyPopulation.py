@@ -307,24 +307,30 @@ def plot_district_elderly_population_latest(df_districts, latest_year_str='2023'
     if df_districts.empty:
         st.info(f"자치구별 65세 이상 인구 수 데이터를 그릴 수 없습니다.")
         return
+    
     col_key = (latest_year_str, '65세이상 인구', '소계', '소계')
     if col_key not in df_districts.columns:
         st.warning(f"65세 이상 인구 데이터 컬럼('{col_key}')을 찾을 수 없습니다.")
         return
+        
     elderly_pop_by_district = df_districts[col_key].sort_values(ascending=False)
+    
     if elderly_pop_by_district.empty:
         st.info(f"자치구별 65세 이상 인구 수 데이터가 비어있습니다.")
         return
+
     fig, ax = plt.subplots(figsize=(15, 8))
     sns.barplot(x=elderly_pop_by_district.index.get_level_values('구분_소'), 
                 y=elderly_pop_by_district.values, ax=ax, label='65세 이상 인구 수')
-    ax.set_title(f'서울시 자치구별 65세 이상 인구 수', fontsize=16)
+    ax.set_title(f'서울시 자치구별 65세 이상 인구 수', fontsize=16) # 연도 정보는 탭 제목에서 표시
     ax.set_xlabel('자치구', fontsize=12)
     ax.set_ylabel('65세 이상 인구 수 (명)', fontsize=12)
-    plt.xticks(rotation=45, ha='right')
+    
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=10) # X축 레이블 45도 회전 및 정렬
+
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: format(int(x), ',')))
     ax.legend(fontsize=10)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
     plt.tight_layout()
     st.pyplot(fig)
 
