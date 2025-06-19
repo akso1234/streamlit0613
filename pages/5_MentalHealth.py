@@ -4,44 +4,22 @@ import pandas as pd
 import os
 import numpy as np
 
-# sys.path 직접 수정 대신, Python의 상대 경로 임포트 메커니즘을 최대한 활용해 봅니다.
-# 이 방법이 Streamlit pages 구조에서 항상 잘 동작하지 않을 수 있으나, 시도해 볼 가치가 있습니다.
-# 만약 이 방법으로도 안 되면, sys.path를 수정하는 이전 방법이 유일할 수 있습니다.
+# sys.path를 수정하는 모든 코드를 제거합니다.
+# Streamlit은 일반적으로 프로젝트 루트를 Python 경로에 포함시킵니다.
 
-# 프로젝트 루트에서 모듈을 가져오기 위한 시도 (pages 폴더가 루트의 하위라고 가정)
-# 이 방식은 __init__.py 파일이 프로젝트 루트에 있을 때 더 잘 동작할 수 있습니다.
-# (하지만 단일 .py 파일 모듈의 경우에도 시도해 볼 만합니다.)
-try:
-    from utils import set_korean_font, load_csv
-    from chart_utils import (
-        plot_total_elderly_trend,
-        plot_gender_elderly_trend,
-        plot_subgroup_gender_elderly_trend,
-        plot_all_conditions_yearly_comparison,
-        plot_pie_chart_by_year,
-        plot_sigungu_mental_patients_by_condition_year
-    )
-except ImportError:
-    # 위 방법이 실패하면, sys.path를 직접 수정하는 이전 방식으로 돌아갑니다.
-    # 이 코드는 Streamlit Cloud에서 Python이 모듈을 찾는 방식에 따라 필요할 수 있습니다.
-    import sys
-    current_file_path = os.path.abspath(__file__)
-    current_dir = os.path.dirname(current_file_path)
-    parent_dir = os.path.dirname(current_dir) # 프로젝트 루트
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-    
-    # sys.path 수정 후 다시 임포트 시도
-    from utils import set_korean_font, load_csv
-    from chart_utils import (
-        plot_total_elderly_trend,
-        plot_gender_elderly_trend,
-        plot_subgroup_gender_elderly_trend,
-        plot_all_conditions_yearly_comparison,
-        plot_pie_chart_by_year,
-        plot_sigungu_mental_patients_by_condition_year
-    )
+from utils import set_korean_font, load_csv # 파일명이 utils.py 여야 함
+from chart_utils import ( # 파일명이 chart_utils.py 여야 함
+    plot_total_elderly_trend,
+    plot_gender_elderly_trend,
+    plot_subgroup_gender_elderly_trend,
+    plot_all_conditions_yearly_comparison,
+    plot_pie_chart_by_year,
+    plot_sigungu_mental_patients_by_condition_year
+)
 
+# ... (이하 @st.cache_data 데코레이터가 붙은 함수 정의 및 run_mental_health_page 함수는
+#      이전 답변에서 제공된 내용과 동일하게 유지합니다.
+#      주요 변경점은 파일 상단의 sys.path 조작 코드 제거와 임포트 구문 확인입니다.)
 
 @st.cache_data
 def preprocess_mental_health_data_cached(file_path, condition_name):
@@ -194,7 +172,7 @@ def run_mental_health_page():
         selected_condition_name_tab1 = st.selectbox(
             "분석할 질환을 선택하세요:", 
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"], 
-            key="mental_condition_select_tab1_final_v9"
+            key="mental_condition_select_tab1_final_v10" # 고유 키 사용
         )
         if dataframes_by_condition and selected_condition_name_tab1 in dataframes_by_condition:
             df_to_analyze = dataframes_by_condition[selected_condition_name_tab1]
@@ -226,7 +204,7 @@ def run_mental_health_page():
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab2, 
             step=1,
-            key="mental_year_slider_tab2_main_v11"
+            key="mental_year_slider_tab2_main_v12" # 고유 키 사용
         )
         if st.session_state.selected_year_mental_tab2 != selected_year_val_tab2:
             st.session_state.selected_year_mental_tab2 = selected_year_val_tab2
@@ -249,7 +227,7 @@ def run_mental_health_page():
             max_value=max(available_years_for_mental_analysis),
             value=st.session_state.selected_year_mental_tab3,
             step=1,
-            key="mental_year_slider_tab3_main_v11"
+            key="mental_year_slider_tab3_main_v12" # 고유 키 사용
         )
         if st.session_state.selected_year_mental_tab3 != selected_year_val_tab3:
             st.session_state.selected_year_mental_tab3 = selected_year_val_tab3
@@ -258,7 +236,7 @@ def run_mental_health_page():
         selected_condition_tab3 = st.selectbox(
             "분석할 질환 선택:",
             list(dataframes_by_condition.keys()) if dataframes_by_condition else ["데이터 없음"],
-            key="mental_condition_select_tab3_final_v11"
+            key="mental_condition_select_tab3_final_v12" # 고유 키 사용
         )
         
         if dataframes_by_condition and selected_condition_tab3 in dataframes_by_condition:
