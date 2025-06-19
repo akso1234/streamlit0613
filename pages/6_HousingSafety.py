@@ -1,4 +1,3 @@
-# --- START OF 6_HousingSafety.py ---
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -323,26 +322,48 @@ def plot_correlation_scatter_ratio(merged_df, x_col_ratio, y_col_incident, title
 
 def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
     required_cols = ['노후주택비율', '고령인구비율', f'{target_cause_for_bubble}건수', '발생장소_구']
-    if df_final_merged.empty or not all(c in df_final_merged.columns for c in required_cols): st.info(f"버블 차트({target_cause_for_bubble})를 그릴 데이터가 부족합니다."); return
+    if df_final_merged.empty or not all(c in df_final_merged.columns for c in required_cols):
+        st.info(f"버블 차트({target_cause_for_bubble})를 그릴 데이터가 부족합니다.")
+        return
     fig, ax = plt.subplots(figsize=(12, 8))
     bubble_sizes_data = df_final_merged[f'{target_cause_for_bubble}건수']
     min_bubble_size, max_bubble_size = 30, 1200
-    if bubble_sizes_data.nunique() <= 1: scaled_bubble_sizes = pd.Series([100] * len(bubble_sizes_data), index=bubble_sizes_data.index)
+    if bubble_sizes_data.nunique() <= 1:
+        scaled_bubble_sizes = pd.Series([100] * len(bubble_sizes_data), index=bubble_sizes_data.index)
     else:
         denominator = bubble_sizes_data.max() - bubble_sizes_data.min()
         if denominator == 0: denominator = 1e-9 
         scaled_bubble_sizes = min_bubble_size + (bubble_sizes_data - bubble_sizes_data.min()) / denominator * (max_bubble_size - min_bubble_size)
         scaled_bubble_sizes[bubble_sizes_data == 0] = min_bubble_size / 2
 
-    scatter_plot = ax.scatter(x='고령인구비율', y='노후주택비율', s=scaled_bubble_sizes, c=df_final_merged[f'{target_cause_for_bubble}건수'], cmap='YlOrRd', alpha=0.7, edgecolors='grey', linewidth=0.5, data=df_final_merged, label='자치구별 데이터')
+    scatter_plot = ax.scatter(
+        x='노후주택비율',  # X축: 노후주택비율
+        y='고령인구비율',  # Y축: 고령인구비율
+        s=scaled_bubble_sizes,
+        c=df_final_merged[f'{target_cause_for_bubble}건수'],
+        cmap='YlOrRd',
+        alpha=0.7,
+        edgecolors='grey',
+        linewidth=0.5,
+        data=df_final_merged,
+        label='자치구별 데이터'
+    )
 
     top_n_districts = df_final_merged.sort_values(by=f'{target_cause_for_bubble}건수', ascending=False).head(7)
     for _, row_data in top_n_districts.iterrows():
-        ax.text(row_data['고령인구비율'] + 0.002, row_data['노후주택비율'] + 0.001, row_data['발생장소_구'], fontsize=9, color='black', ha='left', va='bottom')
+        ax.text(
+            row_data['노후주택비율'] + 0.002,  # X축에 맞춰 조정
+            row_data['고령인구비율'] + 0.001,  # Y축에 맞춰 조정
+            row_data['발생장소_구'],
+            fontsize=9,
+            color='black',
+            ha='left',
+            va='bottom'
+        )
 
-    ax.set_title(f'고령 인구 비율, 노후 주택 비율과 {target_cause_for_bubble} 발생 건수', fontsize=16, pad=15)
-    ax.set_xlabel('고령 인구 비율 (%)', fontsize=12)
-    ax.set_ylabel('30년 이상 노후 주택 비율 (%)', fontsize=12)
+    ax.set_title(f'30년 이상 노후 주택 비율, 고령 인구 비율과 {target_cause_for_bubble} 발생 건수', fontsize=16, pad=15)
+    ax.set_xlabel('30년 이상 노후 주택 비율 (%)', fontsize=12) # X축 레이블 변경
+    ax.set_ylabel('고령 인구 비율 (%)', fontsize=12)         # Y축 레이블 변경
 
     ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
     ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
@@ -365,22 +386,22 @@ def plot_heatmap_housing_elderly_incident_ratio(df_merged_ratio, accident_col_na
             df_merged_ratio_copy['노후주택비율'], bins=num_bins, precision=2, include_lowest=True,
             labels=[f'{i*100/num_bins:.0f}-{(i+1)*100/num_bins:.0f}%' for i in range(num_bins)]
         )
-
+        
         heatmap_data_ratio = df_merged_ratio_copy.pivot_table(
             values=accident_col_name,
-            index='노후주택비율_bin_label',
-            columns='고령인구비율_bin_label',
+            index='고령인구비율_bin_label',    # Index: 고령인구비율 (Y축)
+            columns='노후주택비율_bin_label', # Columns: 노후주택비율 (X축)
             aggfunc='mean',
             observed=True 
-        ).sort_index(ascending=False)
+        ).sort_index(ascending=False) # 고령인구비율 기준으로 정렬 (Y축)
 
         if not heatmap_data_ratio.empty:
             fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 8))
             sns.heatmap(heatmap_data_ratio, annot=True, fmt=".1f", cmap="YlOrRd", linewidths=.5,
                         cbar_kws={'label': f'평균 {target_safety_accident_cause} 건수'}, ax=ax_heatmap)
-            ax_heatmap.set_title(f'고령 인구 비율 및 노후 주택 비율 구간별 평균 {target_safety_accident_cause} 발생 건수', fontsize=16, pad=15)
-            ax_heatmap.set_xlabel('고령 인구 비율 구간 (%)', fontsize=12)
-            ax_heatmap.set_ylabel('30년 이상 노후 주택 비율 구간 (%)', fontsize=12)
+            ax_heatmap.set_title(f'노후 주택 비율 및 고령 인구 비율 구간별 평균 {target_safety_accident_cause} 발생 건수', fontsize=16, pad=15)
+            ax_heatmap.set_xlabel('30년 이상 노후 주택 비율 구간 (%)', fontsize=12) # X축 레이블 변경
+            ax_heatmap.set_ylabel('고령 인구 비율 구간 (%)', fontsize=12)         # Y축 레이블 변경
             plt.setp(ax_heatmap.get_xticklabels(), rotation=45, ha="right")
             plt.setp(ax_heatmap.get_yticklabels(), rotation=0)
             plt.tight_layout()
@@ -430,10 +451,10 @@ def plot_housing_elderly_ratio_comparison(df_housing, df_elderly):
     ax.set_xlabel('자치구', fontsize=14)
     ax.set_ylabel('비율 (%)', fontsize=14)
     
-    ax.tick_params(axis='x', labelsize=10) # x축 레이블 크기 설정
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right") # x축 레이블 회전 및 정렬 설정
+    ax.tick_params(axis='x', labelsize=10) 
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right") 
     
-    ax.tick_params(axis='y', labelsize=10) # y축 레이블 크기
+    ax.tick_params(axis='y', labelsize=10) 
 
     ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
 
