@@ -15,9 +15,6 @@ plt.rcParams['axes.unicode_minus'] = False
 
 
 def draw_example_bar_chart(df: pd.DataFrame):
-    """
-    예시: Matplotlib으로 수평 막대그래프 그리기
-    """
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.barh(df["영역"], df["값"], label="값")
     ax.set_xlabel("값(단위)")
@@ -28,9 +25,6 @@ def draw_example_bar_chart(df: pd.DataFrame):
 
 
 def draw_example_altair_scatter(df: pd.DataFrame):
-    """
-    예시: Altair로 산점도 그리기
-    """
     chart = (
         alt.Chart(df)
         .mark_circle(size=60)
@@ -46,10 +40,6 @@ def draw_example_altair_scatter(df: pd.DataFrame):
 
 
 def draw_hospital_count_bar_charts(df_hosp: pd.DataFrame):
-    """
-    df_hosp: load_raw_data()에서 반환된 DataFrame.
-             컬럼에는 'gu', '소계', '종합병원', '병원', '의원', '요양병원'이 있어야 함.
-    """
     if df_hosp is None or df_hosp.empty:
         st.info("의료기관 수 데이터가 없어 막대 그래프를 그릴 수 없습니다.")
         return
@@ -270,84 +260,88 @@ def draw_avg_beds_heatmap(df_hosp: pd.DataFrame, df_beds: pd.DataFrame):
 
 
 def draw_sheet0_charts( # 주거복지시설
-    df_metrics,
+    df_metrics_input,
+    year: int,
     figsize1: tuple = (14, 6),
     figsize2: tuple = (14, 6),
     figsize3: tuple = (14, 7),
     dpi: int = 100
 ) -> None:
-    if df_metrics is None or df_metrics.empty:
-        st.info("노인주거복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
+    if df_metrics_input is None or df_metrics_input.empty:
+        st.info(f"{year}년 노인주거복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
         return
 
-    # Sort data for each plot
+    df_metrics = df_metrics_input.copy()
+
     df_metrics_sorted_fig1 = df_metrics.sort_values(by='capacity', ascending=False)
     regions_fig1 = df_metrics_sorted_fig1.index.tolist()
     x_fig1 = np.arange(len(regions_fig1))
     n_regions_fig1 = len(regions_fig1)
 
-    df_metrics_sorted_fig2 = df_metrics.sort_values(by='facility', ascending=False)
+    df_metrics_sorted_fig2 = df_metrics.sort_values(by=['facility', 'staff'], ascending=[False, False])
     regions_fig2 = df_metrics_sorted_fig2.index.tolist()
     x_fig2 = np.arange(len(regions_fig2))
     n_regions_fig2 = len(regions_fig2)
-    
+
     df_metrics_sorted_fig3 = df_metrics.sort_values(by='cap_per_staff', ascending=False)
     regions_fig3 = df_metrics_sorted_fig3.index.tolist()
     x_fig3 = np.arange(len(regions_fig3))
     n_regions_fig3 = len(regions_fig3)
 
-
     base_width = 0.8
     num_groups_fig1 = 3
     bar_width_fig1 = base_width / num_groups_fig1 * 0.8
 
+    # 그래프 1
+    st.markdown(f"###### {year}년 자치구별 정원·현원·추가 수용 가능 인원")
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
     ax1.bar(x_fig1 - bar_width_fig1, df_metrics_sorted_fig1['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
     ax1.bar(x_fig1,                  df_metrics_sorted_fig1['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
     ax1.bar(x_fig1 + bar_width_fig1, df_metrics_sorted_fig1['additional'], width=bar_width_fig1, label='추가 수용', color='lightgreen')
-
     ax1.set_xticks(x_fig1)
     ax1.set_xticklabels(regions_fig1, rotation=45, ha='right', fontsize=10 if n_regions_fig1 <= 15 else 8)
     ax1.set_xlabel("자치구", fontsize=12)
     ax1.set_ylabel('인원 수 (명)', fontsize=12)
-    ax1.set_title('서울시 자치구별 노인주거복지시설 정원·현원·추가 수용 가능 인원', fontsize=15, fontweight='bold')
+    ax1.set_title(f'{year}년 서울시 자치구별 노인주거복지시설 정원·현원·추가 수용 인원', fontsize=15, fontweight='bold')
     ax1.legend(fontsize=10, loc='upper right')
     ax1.grid(axis='y', linestyle=':', alpha=0.7)
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
     fig1.tight_layout()
     st.pyplot(fig1)
 
+    # 그래프 2
+    st.markdown(f"###### {year}년 자치구별 시설수 및 종사자수")
     num_groups_fig2 = 2
     bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
     ax2.bar(x_fig2 - bar_width_fig2/2, df_metrics_sorted_fig2['facility'], width=bar_width_fig2, label='시설 수 (개소)', color='skyblue')
     ax2b = ax2.twinx()
     ax2b.bar(x_fig2 + bar_width_fig2/2, df_metrics_sorted_fig2['staff'],    width=bar_width_fig2, label='종사자 수 (명)', color='lightcoral')
-
     ax2.set_xticks(x_fig2)
     ax2.set_xticklabels(regions_fig2, rotation=45, ha='right', fontsize=10 if n_regions_fig2 <= 15 else 8)
     ax2.set_xlabel("자치구", fontsize=12)
-    ax2.set_title('서울시 자치구별 노인주거복지시설 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax2.set_title(f'{year}년 서울시 자치구별 노인주거복지시설 시설수 및 종사자수', fontsize=15, fontweight='bold')
     ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='black')
     ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='black')
     ax2.tick_params(axis='y', labelcolor='black')
     ax2b.tick_params(axis='y', labelcolor='black')
-    lines, labels = ax2.get_legend_handles_labels()
-    lines2, labels2 = ax2b.get_legend_handles_labels()
-    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    lines, labels_ax = ax2.get_legend_handles_labels() # labels 대신 labels_ax 사용
+    lines2, labels2_ax = ax2b.get_legend_handles_labels() # labels2 대신 labels2_ax 사용
+    ax2b.legend(lines + lines2, labels_ax + labels2_ax, loc='upper right', fontsize=10)
     ax2.grid(axis='y', linestyle=':', alpha=0.3)
     fig2.tight_layout()
     st.pyplot(fig2)
 
+    # 그래프 3
+    st.markdown(f"###### {year}년 자치구별 종사자 1인당 담당 인원 비교")
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
     ax3.bar(x_fig3 - bar_width_fig2/2, df_metrics_sorted_fig3['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
     ax3.bar(x_fig3 + bar_width_fig2/2, df_metrics_sorted_fig3['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
-
     ax3.set_xticks(x_fig3)
     ax3.set_xticklabels(regions_fig3, rotation=45, ha='right', fontsize=10 if n_regions_fig3 <= 15 else 8)
     ax3.set_xlabel("자치구", fontsize=12)
     ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
-    ax3.set_title('서울시 자치구별 노인주거복지시설 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
+    ax3.set_title(f'{year}년 서울시 자치구별 노인주거복지시설 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
     ax3.legend(fontsize=10, loc='upper right')
     ax3.grid(axis='y', linestyle=':', alpha=0.7)
     ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
@@ -355,26 +349,29 @@ def draw_sheet0_charts( # 주거복지시설
     st.pyplot(fig3)
 
 def draw_sheet1_charts( # 의료복지시설
-    df_metrics,
+    df_metrics_input,
+    year: int,
     figsize1: tuple = (14, 6),
     figsize2: tuple = (14, 6),
     figsize3: tuple = (14, 7),
     dpi: int = 100
 ) -> None:
-    if df_metrics is None or df_metrics.empty:
-        st.info("노인의료복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
+    if df_metrics_input is None or df_metrics_input.empty:
+        st.info(f"{year}년 노인의료복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
         return
+
+    df_metrics = df_metrics_input.copy()
 
     df_metrics_sorted_fig1 = df_metrics.sort_values(by='capacity', ascending=False)
     regions_fig1 = df_metrics_sorted_fig1.index.tolist()
     x_fig1 = np.arange(len(regions_fig1))
     n_regions_fig1 = len(regions_fig1)
 
-    df_metrics_sorted_fig2 = df_metrics.sort_values(by='facility', ascending=False)
+    df_metrics_sorted_fig2 = df_metrics.sort_values(by=['facility', 'staff'], ascending=[False, False])
     regions_fig2 = df_metrics_sorted_fig2.index.tolist()
     x_fig2 = np.arange(len(regions_fig2))
     n_regions_fig2 = len(regions_fig2)
-    
+
     df_metrics_sorted_fig3 = df_metrics.sort_values(by='cap_per_staff', ascending=False)
     regions_fig3 = df_metrics_sorted_fig3.index.tolist()
     x_fig3 = np.arange(len(regions_fig3))
@@ -384,6 +381,7 @@ def draw_sheet1_charts( # 의료복지시설
     num_groups_fig1 = 3
     bar_width_fig1 = base_width / num_groups_fig1 * 0.8
 
+    st.markdown(f"###### {year}년 자치구별 정원·현원·추가 수용 가능 인원")
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
     ax1.bar(x_fig1 - bar_width_fig1, df_metrics_sorted_fig1['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
     ax1.bar(x_fig1,                  df_metrics_sorted_fig1['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
@@ -392,14 +390,14 @@ def draw_sheet1_charts( # 의료복지시설
     ax1.set_xticklabels(regions_fig1, rotation=45, ha='right', fontsize=10 if n_regions_fig1 <= 15 else 8)
     ax1.set_xlabel("자치구", fontsize=12)
     ax1.set_ylabel('인원 수 (명)', fontsize=12)
-    ax1.set_title('서울시 자치구별 노인의료복지시설 정원·현원·추가 수용 가능 인원', fontsize=15, fontweight='bold')
+    ax1.set_title(f'{year}년 서울시 자치구별 노인의료복지시설 정원·현원·추가 수용 인원', fontsize=15, fontweight='bold')
     ax1.legend(fontsize=10, loc='upper right')
     ax1.grid(axis='y', linestyle=':', alpha=0.7)
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
     fig1.tight_layout()
     st.pyplot(fig1)
 
-
+    st.markdown(f"###### {year}년 자치구별 시설수 및 종사자수")
     num_groups_fig2 = 2
     bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
@@ -409,18 +407,19 @@ def draw_sheet1_charts( # 의료복지시설
     ax2.set_xticks(x_fig2)
     ax2.set_xticklabels(regions_fig2, rotation=45, ha='right', fontsize=10 if n_regions_fig2 <= 15 else 8)
     ax2.set_xlabel("자치구", fontsize=12)
-    ax2.set_title('서울시 자치구별 노인의료복지시설 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax2.set_title(f'{year}년 서울시 자치구별 노인의료복지시설 시설수 및 종사자수', fontsize=15, fontweight='bold')
     ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='black')
     ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='black')
     ax2.tick_params(axis='y', labelcolor='black')
     ax2b.tick_params(axis='y', labelcolor='black')
-    lines, labels = ax2.get_legend_handles_labels()
-    lines2, labels2 = ax2b.get_legend_handles_labels()
-    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    lines, labels_ax = ax2.get_legend_handles_labels()
+    lines2, labels2_ax = ax2b.get_legend_handles_labels()
+    ax2b.legend(lines + lines2, labels_ax + labels2_ax, loc='upper right', fontsize=10)
     ax2.grid(axis='y', linestyle=':', alpha=0.3)
     fig2.tight_layout()
     st.pyplot(fig2)
 
+    st.markdown(f"###### {year}년 자치구별 종사자 1인당 담당 인원 비교")
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
     ax3.bar(x_fig3 - bar_width_fig2/2, df_metrics_sorted_fig3['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
     ax3.bar(x_fig3 + bar_width_fig2/2, df_metrics_sorted_fig3['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
@@ -428,7 +427,7 @@ def draw_sheet1_charts( # 의료복지시설
     ax3.set_xticklabels(regions_fig3, rotation=45, ha='right', fontsize=10 if n_regions_fig3 <= 15 else 8)
     ax3.set_xlabel("자치구", fontsize=12)
     ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
-    ax3.set_title('서울시 자치구별 노인의료복지시설 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
+    ax3.set_title(f'{year}년 서울시 자치구별 노인의료복지시설 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
     ax3.legend(fontsize=10, loc='upper right')
     ax3.grid(axis='y', linestyle=':', alpha=0.7)
     ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
@@ -437,19 +436,21 @@ def draw_sheet1_charts( # 의료복지시설
 
 
 def draw_nursing_csv_charts( # 여가복지시설
-    df_welf: pd.DataFrame,
-    df_centers: pd.DataFrame,
+    df_welf_input: pd.DataFrame,
+    df_centers_input: pd.DataFrame,
+    year: int,
     figsize1: tuple = (14, 6),
     figsize2: tuple = (14, 5),
     dpi: int = 100
 ) -> None:
-    if (df_welf is None or df_welf.empty) and \
-       (df_centers is None or df_centers.empty):
-        st.info("노인여가복지시설(CSV) 데이터가 없어 차트를 그릴 수 없습니다.")
+    if (df_welf_input is None or df_welf_input.empty) and \
+       (df_centers_input is None or df_centers_input.empty):
+        st.info(f"{year}년 노인여가복지시설(CSV) 데이터가 없어 차트를 그릴 수 없습니다.")
         return
 
-    if df_welf is not None and not df_welf.empty:
-        df_welf_sorted = df_welf.sort_values(by='facility', ascending=False)
+    if df_welf_input is not None and not df_welf_input.empty:
+        df_welf = df_welf_input.copy()
+        df_welf_sorted = df_welf.sort_values(by=['facility', 'staff'], ascending=[False, False])
         regions_welf = df_welf_sorted.index.tolist()
         x_welf = np.arange(len(regions_welf))
         n_regions_welf = len(regions_welf)
@@ -457,82 +458,87 @@ def draw_nursing_csv_charts( # 여가복지시설
         num_groups_welf = 2
         bar_width_welf = base_width_welf / num_groups_welf * 0.7
 
+        st.markdown(f"###### {year}년 자치구별 노인복지관 시설수 및 종사자수")
         fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
         ax1.bar(x_welf - bar_width_welf/2, df_welf_sorted['facility'], width=bar_width_welf, label='시설 수 (개소)', color='deepskyblue')
         ax1b = ax1.twinx()
         ax1b.bar(x_welf + bar_width_welf/2, df_welf_sorted['staff'],    width=bar_width_welf, label='종사자 수 (명)', color='tomato')
-
         ax1.set_xticks(x_welf)
         ax1.set_xticklabels(regions_welf, rotation=45, ha='right', fontsize=10 if n_regions_welf <= 15 else 8)
         ax1.set_xlabel("자치구", fontsize=12)
-        ax1.set_title('서울시 자치구별 노인복지관 시설수 및 종사자수', fontsize=15, fontweight='bold')
+        ax1.set_title(f'{year}년 서울시 자치구별 노인복지관 시설수 및 종사자수', fontsize=15, fontweight='bold')
         ax1.set_ylabel('시설 수 (개소)', fontsize=12, color='black')
         ax1b.set_ylabel('종사자 수 (명)', fontsize=12, color='black')
         ax1.tick_params(axis='y', labelcolor='black')
         ax1b.tick_params(axis='y', labelcolor='black')
-        lines, labels = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax1b.get_legend_handles_labels()
-        ax1b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+        lines, labels_ax = ax1.get_legend_handles_labels()
+        lines2, labels2_ax = ax1b.get_legend_handles_labels()
+        ax1b.legend(lines + lines2, labels_ax + labels2_ax, loc='upper right', fontsize=10)
         ax1.grid(axis='y', linestyle=':', alpha=0.3)
         fig1.tight_layout()
         st.pyplot(fig1)
     else:
-        st.info("노인복지관(CSV) 데이터가 없어 '시설수 vs 종사자수' 차트를 그릴 수 없습니다.")
+        st.info(f"{year}년 노인복지관(CSV) 데이터가 없어 '시설수 vs 종사자수' 차트를 그릴 수 없습니다.")
 
-    if df_centers is not None and not df_centers.empty:
+    if df_centers_input is not None and not df_centers_input.empty:
+        df_centers = df_centers_input.copy()
         df_centers_sorted = df_centers.sort_values(by='facility', ascending=False)
         regions_centers = df_centers_sorted.index.tolist()
         x_centers = np.arange(len(regions_centers))
         n_regions_centers = len(regions_centers)
         bar_width_centers = 0.6
 
+        st.markdown(f"###### {year}년 자치구별 경로당 및 노인교실 총 시설수")
         fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
         ax2.bar(x_centers, df_centers_sorted['facility'], width=bar_width_centers, color='mediumseagreen', label='시설 수 (개소)')
         ax2.set_xticks(x_centers)
         ax2.set_xticklabels(regions_centers, rotation=45, ha='right', fontsize=10 if n_regions_centers <= 15 else 8)
         ax2.set_xlabel("자치구", fontsize=12)
         ax2.set_ylabel('시설 수 (개소)', fontsize=12)
-        ax2.set_title('서울시 자치구별 경로당 및 노인교실 총 시설수', fontsize=15, fontweight='bold')
+        ax2.set_title(f'{year}년 서울시 자치구별 경로당 및 노인교실 총 시설수', fontsize=15, fontweight='bold')
         ax2.legend(fontsize=10, loc='upper right')
         ax2.grid(axis='y', linestyle=':', alpha=0.7)
         ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
         fig2.tight_layout()
         st.pyplot(fig2)
     else:
-        st.info("경로당+노인교실(CSV) 데이터가 없어 '총 시설수' 차트를 그릴 수 없습니다.")
+        st.info(f"{year}년 경로당+노인교실(CSV) 데이터가 없어 '총 시설수' 차트를 그릴 수 없습니다.")
 
 
 def draw_sheet3_charts( # 재가노인복지시설
-    df_metrics,
+    df_metrics_input,
+    year: int,
     figsize1: tuple = (14, 6),
     figsize2: tuple = (14, 6),
     figsize3: tuple = (14, 7),
     dpi: int = 100
 ) -> None:
-    if df_metrics is None or df_metrics.empty:
-        st.info("재가노인복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
+    if df_metrics_input is None or df_metrics_input.empty:
+        st.info(f"{year}년 재가노인복지시설 데이터가 없어 차트를 그릴 수 없습니다.")
         return
+
+    df_metrics = df_metrics_input.copy()
 
     df_metrics_sorted_fig1 = df_metrics.sort_values(by='capacity', ascending=False)
     regions_fig1 = df_metrics_sorted_fig1.index.tolist()
     x_fig1 = np.arange(len(regions_fig1))
     n_regions_fig1 = len(regions_fig1)
 
-    df_metrics_sorted_fig2 = df_metrics.sort_values(by='facility', ascending=False)
+    df_metrics_sorted_fig2 = df_metrics.sort_values(by=['facility', 'staff'], ascending=[False, False])
     regions_fig2 = df_metrics_sorted_fig2.index.tolist()
     x_fig2 = np.arange(len(regions_fig2))
     n_regions_fig2 = len(regions_fig2)
-    
+
     df_metrics_sorted_fig3 = df_metrics.sort_values(by='cap_per_staff', ascending=False)
     regions_fig3 = df_metrics_sorted_fig3.index.tolist()
     x_fig3 = np.arange(len(regions_fig3))
     n_regions_fig3 = len(regions_fig3)
 
     base_width = 0.8
-
     num_groups_fig1 = 2
     bar_width_fig1 = base_width / num_groups_fig1 * 0.8
 
+    st.markdown(f"###### {year}년 자치구별 정원·현원 인원수")
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
     ax1.bar(x_fig1 - bar_width_fig1/2, df_metrics_sorted_fig1['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
     ax1.bar(x_fig1 + bar_width_fig1/2, df_metrics_sorted_fig1['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
@@ -540,13 +546,14 @@ def draw_sheet3_charts( # 재가노인복지시설
     ax1.set_xticklabels(regions_fig1, rotation=45, ha='right', fontsize=10 if n_regions_fig1 <= 15 else 8)
     ax1.set_xlabel("자치구", fontsize=12)
     ax1.set_ylabel('인원 수 (명)', fontsize=12)
-    ax1.set_title('서울시 자치구별 재가노인복지시설 정원·현원 인원수', fontsize=15, fontweight='bold')
+    ax1.set_title(f'{year}년 서울시 자치구별 재가노인복지시설 정원·현원 인원수', fontsize=15, fontweight='bold')
     ax1.legend(fontsize=10, loc='upper right')
     ax1.grid(axis='y', linestyle=':', alpha=0.7)
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{int(val):,}'))
     fig1.tight_layout()
     st.pyplot(fig1)
 
+    st.markdown(f"###### {year}년 자치구별 시설수 및 종사자수")
     num_groups_fig2 = 2
     bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
@@ -556,18 +563,19 @@ def draw_sheet3_charts( # 재가노인복지시설
     ax2.set_xticks(x_fig2)
     ax2.set_xticklabels(regions_fig2, rotation=45, ha='right', fontsize=10 if n_regions_fig2 <= 15 else 8)
     ax2.set_xlabel("자치구", fontsize=12)
-    ax2.set_title('서울시 자치구별 재가노인복지시설 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax2.set_title(f'{year}년 서울시 자치구별 재가노인복지시설 시설수 및 종사자수', fontsize=15, fontweight='bold')
     ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='black')
     ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='black')
     ax2.tick_params(axis='y', labelcolor='black')
     ax2b.tick_params(axis='y', labelcolor='black')
-    lines, labels = ax2.get_legend_handles_labels()
-    lines2, labels2 = ax2b.get_legend_handles_labels()
-    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    lines, labels_ax = ax2.get_legend_handles_labels()
+    lines2, labels2_ax = ax2b.get_legend_handles_labels()
+    ax2b.legend(lines + lines2, labels_ax + labels2_ax, loc='upper right', fontsize=10)
     ax2.grid(axis='y', linestyle=':', alpha=0.3)
     fig2.tight_layout()
     st.pyplot(fig2)
 
+    st.markdown(f"###### {year}년 자치구별 종사자 1인당 담당 인원 비교")
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
     ax3.bar(x_fig3 - bar_width_fig2/2, df_metrics_sorted_fig3['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
     ax3.bar(x_fig3 + bar_width_fig2/2, df_metrics_sorted_fig3['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
@@ -575,7 +583,7 @@ def draw_sheet3_charts( # 재가노인복지시설
     ax3.set_xticklabels(regions_fig3, rotation=45, ha='right', fontsize=10 if n_regions_fig3 <= 15 else 8)
     ax3.set_xlabel("자치구", fontsize=12)
     ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
-    ax3.set_title('서울시 자치구별 재가노인복지시설 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
+    ax3.set_title(f'{year}년 서울시 자치구별 재가노인복지시설 종사자 1인당 담당 인원 비교', fontsize=15, fontweight='bold')
     ax3.legend(fontsize=10, loc='upper right')
     ax3.grid(axis='y', linestyle=':', alpha=0.7)
     ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, pos: f'{val:.1f}'))
@@ -584,15 +592,17 @@ def draw_sheet3_charts( # 재가노인복지시설
 
 
 def draw_sheet4_charts( # 노인일자리지원기관
-    df_metrics,
+    df_metrics_input,
+    year: int,
     figsize1: tuple = (14, 6),
     dpi: int = 100
 ) -> None:
-    if df_metrics is None or df_metrics.empty:
-        st.info("노인일자리지원기관 데이터가 없어 차트를 그릴 수 없습니다.")
+    if df_metrics_input is None or df_metrics_input.empty:
+        st.info(f"{year}년 노인일자리지원기관 데이터가 없어 차트를 그릴 수 없습니다.")
         return
 
-    df_metrics_sorted = df_metrics.sort_values(by='facility', ascending=False) # Sort by facility count
+    df_metrics = df_metrics_input.copy()
+    df_metrics_sorted = df_metrics.sort_values(by=['facility', 'staff'], ascending=[False, False])
     regions = df_metrics_sorted.index.tolist()
     x = np.arange(len(regions))
     n_regions = len(regions)
@@ -601,58 +611,60 @@ def draw_sheet4_charts( # 노인일자리지원기관
     num_groups = 2
     bar_width = base_width / num_groups * 0.7
 
+    st.markdown(f"###### {year}년 자치구별 시설수 및 종사자수")
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
     ax1.bar(x - bar_width/2, df_metrics_sorted['facility'], width=bar_width, label='시설 수 (개소)', color='skyblue')
     ax1b = ax1.twinx()
     ax1b.bar(x + bar_width/2, df_metrics_sorted['staff'],    width=bar_width, label='종사자 수 (명)', color='lightcoral')
-
     ax1.set_xticks(x)
     ax1.set_xticklabels(regions, rotation=45, ha='right', fontsize=10 if n_regions <= 15 else 8)
     ax1.set_xlabel("자치구", fontsize=12)
-    ax1.set_title('서울시 자치구별 노인일자리지원기관 시설수 및 종사자수', fontsize=15, fontweight='bold')
+    ax1.set_title(f'{year}년 서울시 자치구별 노인일자리지원기관 시설수 및 종사자수', fontsize=15, fontweight='bold')
     ax1.set_ylabel('시설 수 (개소)', fontsize=12, color='black')
     ax1b.set_ylabel('종사자 수 (명)', fontsize=12, color='black')
     ax1.tick_params(axis='y', labelcolor='black')
     ax1b.tick_params(axis='y', labelcolor='black')
-    lines, labels = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax1b.get_legend_handles_labels()
-    ax1b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    lines, labels_ax = ax1.get_legend_handles_labels()
+    lines2, labels2_ax = ax1b.get_legend_handles_labels()
+    ax1b.legend(lines + lines2, labels_ax + labels2_ax, loc='upper right', fontsize=10)
     ax1.grid(axis='y', linestyle=':', alpha=0.3)
-
     fig1.tight_layout()
     st.pyplot(fig1)
 
 def draw_sheet5_charts( # 치매전담형 장기요양기관
-    df_metrics,
+    df_metrics_input,
+    year: int,
     figsize1: tuple = (14, 6),
     figsize2: tuple = (14, 6),
     figsize3: tuple = (14, 7),
     dpi: int = 100
 ) -> None:
-    if df_metrics is None or df_metrics.empty:
-        st.info("치매전담형 장기요양기관 데이터가 없어 차트를 그릴 수 없습니다.")
+    if df_metrics_input is None or df_metrics_input.empty:
+        st.info(f"{year}년 치매전담형 장기요양기관 데이터가 없어 차트를 그릴 수 없습니다.")
         return
+
+    df_metrics = df_metrics_input.copy()
 
     df_metrics_sorted_fig1 = df_metrics.sort_values(by='capacity', ascending=False)
     regions_fig1 = df_metrics_sorted_fig1.index.tolist()
     x_fig1 = np.arange(len(regions_fig1))
     n_regions_fig1 = len(regions_fig1)
 
-    df_metrics_sorted_fig2 = df_metrics.sort_values(by='facility', ascending=False)
+    df_metrics_sorted_fig2 = df_metrics.sort_values(by=['facility', 'staff'], ascending=[False, False])
     regions_fig2 = df_metrics_sorted_fig2.index.tolist()
     x_fig2 = np.arange(len(regions_fig2))
     n_regions_fig2 = len(regions_fig2)
-    
+
     df_metrics_sorted_fig3 = df_metrics.sort_values(by='cap_per_staff', ascending=False)
     regions_fig3 = df_metrics_sorted_fig3.index.tolist()
     x_fig3 = np.arange(len(regions_fig3))
     n_regions_fig3 = len(regions_fig3)
 
-
     base_width = 0.8
     num_groups_fig1 = 3
     bar_width_fig1 = base_width / num_groups_fig1 * 0.8
 
+    st.markdown(f"###### {year}년 자치구별 정원·현원·추가 수용 가능 인원")
     fig1, ax1 = plt.subplots(figsize=figsize1, dpi=dpi)
     ax1.bar(x_fig1 - bar_width_fig1, df_metrics_sorted_fig1['capacity'],   width=bar_width_fig1, label='정원', color='cornflowerblue')
     ax1.bar(x_fig1,                  df_metrics_sorted_fig1['occupancy'], width=bar_width_fig1, label='현원', color='salmon')
@@ -661,7 +673,7 @@ def draw_sheet5_charts( # 치매전담형 장기요양기관
     ax1.set_xticklabels(regions_fig1, rotation=45, ha='right', fontsize=10 if n_regions_fig1 <= 15 else 8)
     ax1.set_xlabel("자치구", fontsize=12)
     ax1.set_ylabel('인원 수 (명)', fontsize=12)
-    ax1.set_title('서울시 자치구별 치매전담형 장기요양기관 정원·현원·추가 수용 가능 인원',
+    ax1.set_title(f'{year}년 서울시 자치구별 치매전담형 장기요양기관 정원·현원·추가 수용 인원',
                   fontsize=15, fontweight='bold')
     ax1.legend(fontsize=10, loc='upper right')
     ax1.grid(axis='y', linestyle=':', alpha=0.7)
@@ -669,6 +681,7 @@ def draw_sheet5_charts( # 치매전담형 장기요양기관
     fig1.tight_layout()
     st.pyplot(fig1)
 
+    st.markdown(f"###### {year}년 자치구별 시설수 및 종사자수")
     num_groups_fig2 = 2
     bar_width_fig2 = base_width / num_groups_fig2 * 0.7
     fig2, ax2 = plt.subplots(figsize=figsize2, dpi=dpi)
@@ -678,19 +691,20 @@ def draw_sheet5_charts( # 치매전담형 장기요양기관
     ax2.set_xticks(x_fig2)
     ax2.set_xticklabels(regions_fig2, rotation=45, ha='right', fontsize=10 if n_regions_fig2 <= 15 else 8)
     ax2.set_xlabel("자치구", fontsize=12)
-    ax2.set_title('서울시 자치구별 치매전담형 장기요양기관 시설수 및 종사자수',
+    ax2.set_title(f'{year}년 서울시 자치구별 치매전담형 장기요양기관 시설수 및 종사자수',
                   fontsize=15, fontweight='bold')
     ax2.set_ylabel('시설 수 (개소)', fontsize=12, color='black')
     ax2b.set_ylabel('종사자 수 (명)', fontsize=12, color='black')
     ax2.tick_params(axis='y', labelcolor='black')
     ax2b.tick_params(axis='y', labelcolor='black')
-    lines, labels = ax2.get_legend_handles_labels()
-    lines2, labels2 = ax2b.get_legend_handles_labels()
-    ax2b.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=10)
+    lines, labels_ax = ax2.get_legend_handles_labels()
+    lines2, labels2_ax = ax2b.get_legend_handles_labels()
+    ax2b.legend(lines + lines2, labels_ax + labels2_ax, loc='upper right', fontsize=10)
     ax2.grid(axis='y', linestyle=':', alpha=0.3)
     fig2.tight_layout()
     st.pyplot(fig2)
 
+    st.markdown(f"###### {year}년 자치구별 종사자 1인당 담당 인원 비교")
     fig3, ax3 = plt.subplots(figsize=figsize3, dpi=dpi)
     ax3.bar(x_fig3 - bar_width_fig2/2, df_metrics_sorted_fig3['cap_per_staff'], width=bar_width_fig2, label='종사자 1인당 정원', color='mediumseagreen')
     ax3.bar(x_fig3 + bar_width_fig2/2, df_metrics_sorted_fig3['occ_per_staff'], width=bar_width_fig2, label='종사자 1인당 현원', color='mediumpurple')
@@ -698,7 +712,7 @@ def draw_sheet5_charts( # 치매전담형 장기요양기관
     ax3.set_xticklabels(regions_fig3, rotation=45, ha='right', fontsize=10 if n_regions_fig3 <= 15 else 8)
     ax3.set_xlabel("자치구", fontsize=12)
     ax3.set_ylabel('담당 인원 수 (명/종사자 1인)', fontsize=12)
-    ax3.set_title('서울시 자치구별 치매전담형 장기요양기관 종사자 1인당 담당 인원 비교',
+    ax3.set_title(f'{year}년 서울시 자치구별 치매전담형 장기요양기관 종사자 1인당 담당 인원 비교',
                   fontsize=15, fontweight='bold')
     ax3.legend(fontsize=10, loc='upper right')
     ax3.grid(axis='y', linestyle=':', alpha=0.7)
