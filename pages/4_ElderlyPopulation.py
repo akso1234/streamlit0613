@@ -223,7 +223,7 @@ def plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data, selected_goryeo
     ax.pie([male_pop, female_pop], explode=(0, 0.05), labels=pie_labels,
             colors=['skyblue', 'lightcoral'], autopct='%1.1f%%', shadow=True, startangle=140, textprops={'fontsize': 11})
     ax.set_title(f'{selected_goryeong_year_str}년 서울시 65세 이상 인구 성별 분포', fontsize=15); ax.axis('equal')
-    ax.legend(pie_labels, title="성별", loc="best", fontsize=10)
+    ax.legend(pie_legend, title="성별", loc="best", fontsize=10)
     st.pyplot(fig)
 
 def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_districts, selected_year_dokgo_format):
