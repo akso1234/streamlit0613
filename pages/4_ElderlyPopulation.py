@@ -219,7 +219,7 @@ def plot_seoul_total_dokgo_trend(df_seoul_total, df_seoul_male, df_seoul_female,
         ax.plot(year_data_cols, df_seoul_female[year_data_cols].iloc[0], marker='s', linestyle='--', label='여성', color='tomato')
     if not df_seoul_total.empty and all(col in df_seoul_total.columns for col in year_data_cols):
         ax.plot(year_data_cols, df_seoul_total[year_data_cols].iloc[0], marker='^', linestyle=':', label='전체 (계)', color='gray')
-    ax.set_title('서울시 전체 연도별 독거노인 수 변화 (성별 구분)', fontsize=16)
+    ax.set_title('서울시 전체 연도별 독거노인 수 변화', fontsize=16)
     ax.set_xlabel('연도', fontsize=12); ax.set_ylabel('독거노인 수 (명)', fontsize=12)
     ax.set_xticks(year_data_cols); ax.set_xticklabels(year_data_cols)
     ax.legend(title='성별', fontsize=10); ax.grid(True, linestyle=':', alpha=0.7)
