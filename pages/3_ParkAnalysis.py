@@ -96,7 +96,7 @@ def extract_total_park_stats_cached(districts_df, years_str_list):
     return df_park_counts, df_park_area
 
 # --- 시각화 함수 ---
-def plot_yearly_district_comparison(df_metric, metric_name, unit, selected_year_str, bar_color='skyblue'):
+def plot_yearly_district_comparison(df_metric, metric_name, unit, selected_year_str, bar_color='skyblue', custom_xlabel: str = None):
     if df_metric.empty or selected_year_str not in df_metric.columns:
         st.info(f"{selected_year_str}년 {metric_name} 데이터가 없습니다.")
         return
@@ -109,7 +109,12 @@ def plot_yearly_district_comparison(df_metric, metric_name, unit, selected_year_
     fig, ax = plt.subplots(figsize=(10, 12))
     sns.barplot(x=selected_year_str, y='자치구', data=data_for_year, color=bar_color, ax=ax, label=f'{metric_name} ({unit})')
     ax.set_title(f'{selected_year_str}년 자치구별 총 공원 {metric_name}', fontsize=16)
-    ax.set_xlabel(f'총 공원 {metric_name} ({unit})', fontsize=12)
+    
+    if custom_xlabel:
+        ax.set_xlabel(custom_xlabel, fontsize=12)
+    else:
+        ax.set_xlabel(f'총 공원 {metric_name} ({unit})', fontsize=12)
+        
     ax.set_ylabel('자치구', fontsize=12)
     ax.tick_params(axis='x', labelsize=10); ax.tick_params(axis='y', labelsize=9)
     for index, value in enumerate(data_for_year[selected_year_str]):
@@ -299,20 +304,24 @@ def run_park_analysis_page():
     with tab1:
         st.markdown("##### 총 공원 면적 (천㎡)")
         if not df_park_area.empty:
-            plot_yearly_district_comparison(df_park_area, "면적", "천㎡", selected_year_str, bar_color='cornflowerblue')
+            plot_yearly_district_comparison(df_park_area, "면적", "천㎡", selected_year_str, bar_color='cornflowerblue', custom_xlabel='공원 면적')
         else: st.info("자치구별 공원 면적 데이터가 없습니다.")
 
         st.markdown("##### 총 공원 수 (개소)")
         if not df_park_counts.empty:
-            plot_yearly_district_comparison(df_park_counts, "수", "개소", selected_year_str, bar_color='mediumseagreen')
+            plot_yearly_district_comparison(df_park_counts, "수", "개소", selected_year_str, bar_color='mediumseagreen', custom_xlabel='공원 수')
         else: st.info("자치구별 공원 수 데이터가 없습니다.")
 
         st.markdown("##### 공원 1개소당 평균 면적 (천㎡/개소)")
         if not df_park_counts.empty and not df_park_area.empty:
-            df_park_counts_for_avg = df_park_counts.replace(0, np.nan)
-            if not df_park_counts_for_avg.empty and selected_year_str in df_park_counts_for_avg.columns:
-                df_avg_park_area = df_park_area.div(df_park_counts_for_avg).fillna(0)
-                plot_yearly_district_comparison(df_avg_park_area, "1개소당 평균 면적", "천㎡/개소", selected_year_str, bar_color='lightcoral')
+            df_park_counts_for_avg = df_park_counts.replace(0, np.nan) # Avoid division by zero
+            if not df_park_counts_for_avg.empty and selected_year_str in df_park_counts_for_avg.columns and not df_park_counts_for_avg[selected_year_str].isnull().all():
+                # Ensure the series used for division is not all NaNs or zeros for the selected year
+                if df_park_area[selected_year_str].sum() > 0 and df_park_counts_for_avg[selected_year_str].sum() > 0 :
+                     df_avg_park_area = df_park_area.div(df_park_counts_for_avg).fillna(0)
+                     plot_yearly_district_comparison(df_avg_park_area, "1개소당 평균 면적", "천㎡/개소", selected_year_str, bar_color='lightcoral', custom_xlabel='공원 평균 면적')
+                else:
+                    st.info(f"{selected_year_str}년 공원 면적 또는 공원 수가 없어 1개소당 평균 면적을 계산할 수 없습니다.")
             else: st.info(f"{selected_year_str}년 공원 수가 모두 0이거나 데이터가 없어 1개소당 평균 면적을 계산할 수 없습니다.")
         else: st.info("자치구별 공원 1개소당 평균 면적을 계산할 데이터가 부족합니다.")
 
@@ -339,15 +348,18 @@ def run_park_analysis_page():
             elif map_metric_parks == "1개소당 평균 면적":
                 if not df_park_counts.empty and not df_park_area.empty:
                     df_park_counts_for_avg_map = df_park_counts.replace(0, np.nan)
-                    if not df_park_counts_for_avg_map.empty and selected_year_str in df_park_counts_for_avg_map.columns:
-                        df_avg_park_area_map = df_park_area.div(df_park_counts_for_avg_map).fillna(0)
-                        park_map_to_display = create_choropleth_map(df_avg_park_area_map, seoul_geo_data_parks, selected_year_str, "1개소당 평균 면적", "천㎡/개소", "Oranges")
+                    if not df_park_counts_for_avg_map.empty and selected_year_str in df_park_counts_for_avg_map.columns and not df_park_counts_for_avg_map[selected_year_str].isnull().all():
+                        if df_park_area[selected_year_str].sum() > 0 and df_park_counts_for_avg_map[selected_year_str].sum() > 0 :
+                            df_avg_park_area_map = df_park_area.div(df_park_counts_for_avg_map).fillna(0)
+                            park_map_to_display = create_choropleth_map(df_avg_park_area_map, seoul_geo_data_parks, selected_year_str, "1개소당 평균 면적", "천㎡/개소", "Oranges")
+                        else:
+                            st.info(f"{selected_year_str}년 1개소당 평균 면적을 계산할 데이터(공원 면적 또는 공원 수)가 없어 지도를 생성할 수 없습니다.")
                     else: st.info(f"{selected_year_str}년 1개소당 평균 면적을 계산할 데이터(공원 수)가 없어 지도를 생성할 수 없습니다.")
                 else: st.info("1개소당 평균 면적 데이터를 계산할 수 없어 지도를 생성할 수 없습니다.")
 
             if park_map_to_display:
                 st_folium(park_map_to_display, width=800, height=600)
-            elif seoul_geo_data_parks :
+            elif seoul_geo_data_parks : # Ensure this condition is only met if geo data is available but map couldn't be made for other reasons
                  st.info("선택한 항목에 대한 지도를 표시할 데이터가 없습니다.")
         else:
             st.warning("GeoJSON 데이터가 로드되지 않아 지도를 표시할 수 없습니다.")
