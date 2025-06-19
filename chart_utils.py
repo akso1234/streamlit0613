@@ -273,8 +273,8 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
         data=df_to_plot,
         x='질환명',
         y='총 노인 환자수',
-        hue='연도'
-        palette='Set2' # 색상 팔레트 지정 제거 (기본 색상 사용)
+        hue='연도',
+        palette='tab10'  # <<< 다른 팔레트로 명시적 지정 (예: tab10)
     )
 
     plt.title('서울시 연도별/질환별 노인 환자수 비교', fontsize=16, pad=15)
@@ -288,7 +288,6 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
     ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{int(x):,}'))
     plt.tight_layout(rect=[0,0,0.9,1]) 
     st.pyplot(plt)
-
 # --- Welfare Facilities Charts ---
 def draw_sheet0_charts(
     df_metrics_input,
