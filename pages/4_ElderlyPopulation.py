@@ -193,7 +193,7 @@ def plot_district_elderly_ratio_change(df_districts, start_year_str, end_year_st
     sns.barplot(x=ratio_change_pp_sorted.index.get_level_values('구분_소'), 
                 y=ratio_change_pp_sorted.values, ax=ax,
                 label=f'{start_year_str}년 대비 {end_year_str}년 변화량 (p.p.)')
-    ax.set_title(f'서울시 자치구별 고령화율 변화량)', fontsize=16)
+    ax.set_title(f'서울시 자치구별 고령화율 변화량', fontsize=16)
     ax.set_xlabel('자치구', fontsize=12)
     ax.set_ylabel('고령화율 변화 (p.p.)', fontsize=12)
     plt.xticks(rotation=45, ha='right')
