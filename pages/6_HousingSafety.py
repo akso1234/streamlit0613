@@ -1,5 +1,3 @@
---- START OF FILE 6_HousingSafety (3).py ---
-
 # --- START OF 6_HousingSafety.py ---
 import streamlit as st
 import pandas as pd
