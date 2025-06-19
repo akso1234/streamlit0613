@@ -273,8 +273,7 @@ def plot_grouped_bar_all_conditions_yearly(all_years_summary_df):
         data=df_to_plot,
         x='질환명',
         y='총 노인 환자수',
-        hue='연도',
-        palette='tab10'  # <<< 다른 팔레트로 명시적 지정 (예: tab10)
+        hue='연도'
     )
 
     plt.title('서울시 연도별/질환별 노인 환자수 비교', fontsize=16, pad=15)
