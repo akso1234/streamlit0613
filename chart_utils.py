@@ -702,7 +702,7 @@ def draw_sheet5_charts(
     fig3.tight_layout()
     st.pyplot(fig3)
 
-# --- Mental Health Charts (이전 피드백 반영된 버전) ---
+# --- Mental Health Charts ---
 def plot_total_elderly_trend(total_patients_df, condition_name):
     if total_patients_df is None or total_patients_df.empty:
         st.info(f"노인 {condition_name} 환자수 총계 추이 데이터를 그릴 수 없습니다.")
@@ -829,6 +829,85 @@ def plot_sigungu_mental_patients_by_condition_year(df_sigungu_mental_total, sele
     ax.tick_params(axis='y', labelsize=10)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.legend(fontsize=10)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+# 새로운 함수: 모든 질환 연도별 환자수 추이 (꺾은선)
+def plot_all_conditions_trend_lineplot(all_years_summary_df):
+    if all_years_summary_df is None or all_years_summary_df.empty:
+        st.info("꺾은선 그래프를 위한 종합 데이터가 없습니다.")
+        return
+    plt.figure(figsize=(15, 8))
+    sns.lineplot(
+        data=all_years_summary_df,
+        x='연도',
+        y='총 노인 환자수',
+        hue='질환명',
+        marker='o',
+        palette='tab10'
+    )
+    plt.title('서울시 5대 정신질환별 노인 환자수 연도별 추이', fontsize=16)
+    plt.xlabel('연도', fontsize=12)
+    plt.ylabel('총 노인 환자수 (명)', fontsize=12)
+    if not all_years_summary_df.empty:
+        unique_years_in_data = sorted(all_years_summary_df['연도'].unique())
+        plt.xticks(unique_years_in_data, fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.legend(title='질환명', bbox_to_anchor=(1.02, 1), loc='upper left', title_fontsize='11', fontsize='10')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.tight_layout(rect=[0,0,0.85,1])
+    st.pyplot(plt)
+
+# 새로운 함수: 모든 질환 연도별 전체 노인 인구 대비 환자 비율 추이 (꺾은선)
+def plot_elderly_population_ratio_trend_lineplot(df_merged_ratio_seoul_total):
+    if df_merged_ratio_seoul_total is None or df_merged_ratio_seoul_total.empty or '노인 인구 대비 환자 비율 (%)' not in df_merged_ratio_seoul_total.columns:
+        st.info("노인 인구 대비 환자 비율 추이 데이터를 그릴 수 없거나 필요한 컬럼이 없습니다.")
+        return
+    plt.figure(figsize=(15, 8))
+    sns.lineplot(data=df_merged_ratio_seoul_total, x='연도', y='노인 인구 대비 환자 비율 (%)', hue='질환명', marker='o', palette='tab10')
+    plt.title('서울시 연도별 정신질환별 노인 환자 비율 (전체 노인 인구 대비)', fontsize=16)
+    plt.xlabel('연도', fontsize=12)
+    plt.ylabel('노인 인구 대비 환자 비율 (%)', fontsize=12)
+    if not df_merged_ratio_seoul_total.empty:
+        plt.xticks(sorted(df_merged_ratio_seoul_total['연도'].unique()), fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.gca().yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{x:.2f}%')) # Y축 % 포맷
+    plt.legend(title='질환명', bbox_to_anchor=(1.02, 1), loc='upper left', title_fontsize='11', fontsize='10')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.tight_layout(rect=[0,0,0.85,1])
+    st.pyplot(plt)
+
+# 새로운 함수: 구별 <질환명> 노인 환자 "비율" (전체 노인 인구 대비)
+def plot_sigungu_mental_patients_ratio_by_condition_year(df_sigungu_ratio_data, selected_condition, selected_year):
+    if df_sigungu_ratio_data.empty:
+        st.info(f"<{selected_condition}>에 대한 구별 정신질환자 비율 데이터가 없습니다.")
+        return
+
+    df_plot = df_sigungu_ratio_data[
+        (df_sigungu_ratio_data['질환명'] == selected_condition) &
+        (df_sigungu_ratio_data['연도'] == selected_year)
+    ].copy()
+
+    ratio_col_name = '전체노인인구_대비_질환자_비율(%)'
+    if df_plot.empty or (ratio_col_name in df_plot.columns and df_plot[ratio_col_name].sum() == 0):
+        st.info(f"<{selected_condition}>에 대한 유의미한 구별 환자 비율 데이터가 없습니다.")
+        return
+    if ratio_col_name not in df_plot.columns:
+        st.warning(f"<{selected_condition}> 데이터에 '{ratio_col_name}' 컬럼이 없습니다.")
+        return
+
+    df_plot = df_plot.sort_values(by=ratio_col_name, ascending=False)
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+    sns.barplot(data=df_plot, x='시군구', y=ratio_col_name, color='mediumpurple', ax=ax, label=f'{selected_condition} 환자 비율(%)')
+    ax.set_title(f'서울시 구별 <{selected_condition}> 노인 환자 비율 (전체 노인 인구 대비)', fontsize=16)
+    ax.set_xlabel('자치구', fontsize=14)
+    ax.set_ylabel(f'{selected_condition} 환자 비율 (%)', fontsize=14)
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=10)
+    ax.tick_params(axis='y', labelsize=10)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, p: f'{x:.2f}%'))
     ax.legend(fontsize=10)
     plt.tight_layout()
     st.pyplot(fig)
