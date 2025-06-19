@@ -1,3 +1,5 @@
+--- START OF FILE 6_HousingSafety (3).py ---
+
 # --- START OF 6_HousingSafety.py ---
 import streamlit as st
 import pandas as pd
@@ -242,7 +244,6 @@ def plot_gu_incident_counts(df_rescue):
 def plot_stacked_bar_incident_causes_by_gu(df_rescue, top_n_causes=7):
     if df_rescue.empty or '발생장소_구' not in df_rescue.columns or '사고원인' not in df_rescue.columns: st.info("구별 사고원인별 발생 건수 데이터를 그릴 수 없습니다."); return
     
-    # '서울특별시' 데이터 제외
     df_rescue_filtered_causes = df_rescue[df_rescue['발생장소_구'] != '서울특별시'].copy()
     if df_rescue_filtered_causes.empty:
         st.info("자치구별 사고 원인 데이터가 없습니다 ('서울특별시' 제외 후).")
@@ -253,7 +254,7 @@ def plot_stacked_bar_incident_causes_by_gu(df_rescue, top_n_causes=7):
     gu_cause_counts['총계'] = gu_cause_counts.sum(axis=1)
     gu_cause_counts = gu_cause_counts.sort_values(by='총계', ascending=False).drop(columns='총계')
     
-    if gu_cause_counts.empty: # 필터링 및 집계 후 데이터가 없을 수 있음
+    if gu_cause_counts.empty: 
         st.info("사고 원인별 집계 데이터가 비어있어 누적 막대 그래프를 생성할 수 없습니다.")
         return
 
@@ -265,7 +266,7 @@ def plot_stacked_bar_incident_causes_by_gu(df_rescue, top_n_causes=7):
         df_plot = gu_cause_counts.copy()
         if '기타원인' not in df_plot.columns and df_plot.shape[1] > 0 : df_plot['기타원인'] = 0
     
-    if df_plot.empty: st.info("사고 원인별 집계 데이터가 비어있어 누적 막대 그래프를 생성할 수 없습니다."); return # 최종 df_plot 확인
+    if df_plot.empty: st.info("사고 원인별 집계 데이터가 비어있어 누적 막대 그래프를 생성할 수 없습니다."); return 
     
     fig, ax = plt.subplots(figsize=(18, 10))
     df_plot.plot(kind='bar', stacked=True, ax=ax)
@@ -331,7 +332,7 @@ def plot_bubble_chart_ratio(df_final_merged, target_cause_for_bubble):
     if bubble_sizes_data.nunique() <= 1: scaled_bubble_sizes = pd.Series([100] * len(bubble_sizes_data), index=bubble_sizes_data.index)
     else:
         denominator = bubble_sizes_data.max() - bubble_sizes_data.min()
-        if denominator == 0: denominator = 1e-9 # 분모가 0이 되는 것 방지
+        if denominator == 0: denominator = 1e-9 
         scaled_bubble_sizes = min_bubble_size + (bubble_sizes_data - bubble_sizes_data.min()) / denominator * (max_bubble_size - min_bubble_size)
         scaled_bubble_sizes[bubble_sizes_data == 0] = min_bubble_size / 2
 
@@ -372,7 +373,7 @@ def plot_heatmap_housing_elderly_incident_ratio(df_merged_ratio, accident_col_na
             index='노후주택비율_bin_label',
             columns='고령인구비율_bin_label',
             aggfunc='mean',
-            observed=True
+            observed=True 
         ).sort_index(ascending=False)
 
         if not heatmap_data_ratio.empty:
@@ -412,42 +413,42 @@ def plot_housing_elderly_ratio_comparison(df_housing, df_elderly):
         st.info("병합된 노후 주택 및 고령 인구 비율 데이터가 없습니다.")
         return
 
-    # --- START OF MODIFICATION ---
-    # '자치구' 컬럼 대신 '발생장소_구' 컬럼을 사용하여 정렬합니다.
-    ordered_gus = df_merged_ratios.sort_values(by='노후주택비율', ascending=False)['발생장소_구'].tolist()
-    # --- END OF MODIFICATION ---
+    # '발생장소_구' 컬럼을 사용하여 정렬된 구 이름 리스트를 생성합니다.
+    # 이 리스트는 나중에 melt된 데이터프레임의 '자치구' 컬럼 순서를 지정하는 데 사용됩니다.
+    ordered_gu_names_for_plot = df_merged_ratios.sort_values(by='노후주택비율', ascending=False)['발생장소_구'].tolist()
 
     df_plot_melted = df_merged_ratios.melt(
-        id_vars='발생장소_구',
+        id_vars='발생장소_구', # melt의 기준 컬럼은 '발생장소_구'
         value_vars=['노후주택비율', '고령인구비율'],
         var_name='지표종류',
         value_name='비율'
     )
+    # melt 이후 '발생장소_구' 컬럼을 '자치구'로 변경합니다.
     df_plot_melted.rename(columns={'발생장소_구': '자치구'}, inplace=True)
-
-    ordered_gus = df_merged_ratios.sort_values(by='노후주택비율', ascending=False)['자치구'].tolist()
 
     fig, ax = plt.subplots(figsize=(18, 10))
 
-    sns.barplot(x='자치구', y='비율', hue='지표종류', data=df_plot_melted, order=ordered_gus,
+    # sns.barplot에서 x축은 '자치구' (df_plot_melted의 컬럼)
+    # order 인자는 이 '자치구' 컬럼의 순서를 지정하며, ordered_gu_names_for_plot (원래 '발생장소_구' 이름들의 리스트)를 사용합니다.
+    sns.barplot(x='자치구', y='비율', hue='지표종류', data=df_plot_melted, order=ordered_gu_names_for_plot,
                 palette={'노후주택비율':'coral', '고령인구비율':'skyblue'}, ax=ax)
 
-    ax.set_title('서울시 구별 30년 이상 노후 주택 비율 및 고령 인구 비율 비교', fontsize=18, pad=20) # 제목 추가
+    ax.set_title('서울시 구별 30년 이상 노후 주택 비율 및 고령 인구 비율 비교', fontsize=18, pad=20)
     ax.set_xlabel('자치구', fontsize=14)
     ax.set_ylabel('비율 (%)', fontsize=14)
-    ax.tick_params(axis='x', rotation=45, labelsize=10) # x축 레이블 회전 및 크기
-    ax.tick_params(axis='y', labelsize=10) # y축 레이블 크기
+    ax.tick_params(axis='x', rotation=45, labelsize=10, ha="right") # ha="right" 추가
+    ax.tick_params(axis='y', labelsize=10)
 
     ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
 
-    if not df_plot_melted['비율'].empty: # Y축 범위 설정
+    if not df_plot_melted['비율'].empty:
         max_ratio = df_plot_melted['비율'].max()
-        ax.set_ylim(0, max_ratio * 1.15 if max_ratio > 0 else 0.1) # 15% 여유분 또는 최소 0.1
+        ax.set_ylim(0, max_ratio * 1.15 if max_ratio > 0 else 0.1)
 
     ax.legend(title='', fontsize=11, title_fontsize=12)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
 
-    fig.tight_layout() # plt.tight_layout() 대신 fig 객체 사용
+    fig.tight_layout()
     st.pyplot(fig)
 
 
@@ -497,7 +498,7 @@ def run_housing_safety_page():
             df_rescue_time_analysis = df_rescue_processed.copy()
             try:
                 df_rescue_time_analysis['신고시간_dt'] = pd.to_datetime(df_rescue_time_analysis['신고시각'], errors='coerce')
-            except Exception:
+            except Exception: 
                  df_rescue_time_analysis['신고시간_dt'] = pd.NaT
 
             if '신고시간_dt' in df_rescue_time_analysis.columns and not df_rescue_time_analysis['신고시간_dt'].isnull().all():
@@ -524,7 +525,7 @@ def run_housing_safety_page():
 
     with tabs[4]:
         st.subheader(tab_titles_ordered[4])
-        plot_housing_elderly_ratio_comparison(df_housing_processed_h, df_elderly_processed_h) # 수정된 함수 호출
+        plot_housing_elderly_ratio_comparison(df_housing_processed_h, df_elderly_processed_h) 
 
     with tabs[5]:
         st.subheader(tab_titles_ordered[5])
@@ -578,7 +579,7 @@ def run_housing_safety_page():
 
     with tabs[6]:
         st.subheader(tab_titles_ordered[6])
-        unique_causes_list_h_bubble_ratio = sorted(df_rescue_processed['사고원인'].unique()) if '사고원인' in df_rescue_processed.columns else ['화재']
+        unique_causes_list_h_bubble_ratio = sorted(df_rescue_processed['사고원인'].unique()) if '사고원인' in df_rescue_processed.columns else ['화재'] 
         default_idx_bubble_ratio = unique_causes_list_h_bubble_ratio.index('화재') if '화재' in unique_causes_list_h_bubble_ratio else 0
         cause_for_bubble_ratio = st.selectbox(
             "버블/히트맵 기준 사고 원인:",
@@ -587,7 +588,7 @@ def run_housing_safety_page():
             key="bubble_ratio_cause_select_housing_v5"
         )
 
-        if cause_for_bubble_ratio:
+        if cause_for_bubble_ratio: 
             if not df_housing_processed_h.empty and '노후주택비율' in df_housing_processed_h.columns and \
                not df_elderly_processed_h.empty and '고령인구비율' in df_elderly_processed_h.columns:
 
