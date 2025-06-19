@@ -193,7 +193,7 @@ def plot_district_elderly_ratio_change(df_districts, start_year_str, end_year_st
     sns.barplot(x=ratio_change_pp_sorted.index.get_level_values('구분_소'), 
                 y=ratio_change_pp_sorted.values, ax=ax,
                 label=f'{start_year_str}년 대비 {end_year_str}년 변화량 (p.p.)')
-    ax.set_title(f'서울시 자치구별 고령화율 변화량)', fontsize=16)
+    ax.set_title(f'서울시 자치구별 고령화율 변화량', fontsize=16)
     ax.set_xlabel('자치구', fontsize=12)
     ax.set_ylabel('고령화율 변화 (p.p.)', fontsize=12)
     plt.xticks(rotation=45, ha='right')
@@ -486,7 +486,6 @@ def run_elderly_population_page():
             plot_dokgo_by_gu_yearly(df_gu_dokgo_s1923, current_selected_year_dokgo_format_tab3)
 
         with sub_tab_new_dokgo_ratio: 
-            st.markdown(f"#### 2023년 서울시 전체 65세 이상 인구 중 독거노인 비율") 
             if not seoul_total_goryeong_data_page.empty and df_seoul_total_s1923 is not None and not df_seoul_total_s1923.empty:
                  plot_seoul_total_dokgo_ratio_pie(seoul_total_goryeong_data_page, df_seoul_total_s1923, '2023') # 이 탭은 항상 2023년 데이터 표시
             else:
