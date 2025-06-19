@@ -424,7 +424,7 @@ def plot_housing_elderly_ratio_comparison(df_housing, df_elderly):
         max_ratio = df_plot_melted['비율'].max()
         ax.set_ylim(0, max_ratio * 1.15 if max_ratio > 0 else 0.1) # 15% 여유분 또는 최소 0.1
 
-    ax.legend(title='지표 종류', fontsize=11, title_fontsize=12)
+    ax.legend(title='', fontsize=11, title_fontsize=12)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     
     fig.tight_layout() # plt.tight_layout() 대신 fig 객체 사용
