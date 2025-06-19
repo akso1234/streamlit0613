@@ -107,7 +107,7 @@ def plot_yearly_district_comparison(df_metric, metric_name, unit, selected_year_
         return
 
     fig, ax = plt.subplots(figsize=(10, 12))
-    sns.barplot(x=selected_year_str, y='자치구', data=data_for_year, color=bar_color, ax=ax)
+    sns.barplot(x=selected_year_str, y='자치구', data=data_for_year, color=bar_color, ax=ax, label=f'{metric_name} ({unit})')
     ax.set_title(f'{selected_year_str}년 자치구별 총 공원 {metric_name}', fontsize=16)
     ax.set_xlabel(f'총 공원 {metric_name} ({unit})', fontsize=12)
     ax.set_ylabel('자치구', fontsize=12)
@@ -117,6 +117,7 @@ def plot_yearly_district_comparison(df_metric, metric_name, unit, selected_year_
             formatted_value = f'{value:,.1f}' if isinstance(value, float) and unit == "천㎡" else f'{int(value):,}'
             ax.text(value, index, f' {formatted_value}', va='center', ha='left', fontsize=8, color='black')
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+    ax.legend(fontsize=10)
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
@@ -194,7 +195,8 @@ def plot_seoul_total_distribution(df_seoul_total, selected_year_str):
 
     ax.set_title(f'서울시 도시공원 유형별 면적 분포 ({selected_year_str}년)', fontsize=16)
     ax.axis('equal')
-    plt.tight_layout()
+    ax.legend(park_types_series_to_plot.index, title="공원 유형", loc="center left", bbox_to_anchor=(1.05, 0.5), fontsize=9)
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
     st.pyplot(fig)
 
 def create_choropleth_map(df_metric, geo_data, year_str, metric_name, unit, fill_color_map='Blues'):
