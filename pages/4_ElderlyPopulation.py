@@ -9,7 +9,7 @@ from streamlit_folium import st_folium
 from utils import set_korean_font, load_csv, load_geojson
 from shapely.geometry import shape, Polygon, MultiPolygon
 import os
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, PercentFormatter
 
 # --- 데이터 전처리 및 추출 함수 (이전과 동일) ---
 @st.cache_data
@@ -97,31 +97,30 @@ def preprocess_goryeong_data_cached(df_raw):
             df_districts = df_districts_temp
     return df_districts, seoul_total_data
 
-# --- 시각화 함수 (이전 답변에서 수정된 내용 유지 및 새 함수 추가) ---
+# --- 시각화 함수 (수정 사항 반영) ---
 def plot_seoul_population_trends(seoul_total_goryeong_data, goryeong_years_str_list):
-    # ... (이전 코드 내용 유지) ...
     if seoul_total_goryeong_data.empty: st.info("서울시 전체 인구 추이 데이터를 그릴 수 없습니다."); return
     seoul_total_pop_trend = [seoul_total_goryeong_data.get((year, '전체인구', '소계', '소계'), 0) for year in goryeong_years_str_list]
     seoul_elderly_pop_trend = [seoul_total_goryeong_data.get((year, '65세이상 인구', '소계', '소계'), 0) for year in goryeong_years_str_list]
     fig1, ax1 = plt.subplots(figsize=(10, 5))
-    ax1.plot(goryeong_years_str_list, seoul_total_pop_trend, marker='o', linestyle='-', label='서울시 전체 인구', color='navy')
-    ax1.plot(goryeong_years_str_list, seoul_elderly_pop_trend, marker='s', linestyle='--', label='서울시 65세 이상 인구', color='darkorange')
+    ax1.plot(goryeong_years_str_list, seoul_total_pop_trend, marker='o', linestyle='-', label='서울시 전체 인구') # color 지정 제거
+    ax1.plot(goryeong_years_str_list, seoul_elderly_pop_trend, marker='s', linestyle='--', label='서울시 65세 이상 인구') # color 지정 제거
     ax1.set_title('서울시 전체 인구 및 65세 이상 인구 변화', fontsize=15)
     ax1.set_xlabel('연도'); ax1.set_ylabel('인구수 (명)'); ax1.legend(); ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
     ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
     plt.tight_layout(); st.pyplot(fig1)
+
     seoul_total_pop_np = np.array(seoul_total_pop_trend, dtype=float); seoul_elderly_pop_np = np.array(seoul_elderly_pop_trend, dtype=float)
     seoul_elderly_ratio_trend = np.zeros_like(seoul_total_pop_np); mask = seoul_total_pop_np > 0
     seoul_elderly_ratio_trend[mask] = (seoul_elderly_pop_np[mask] / seoul_total_pop_np[mask]) * 100
     fig2, ax2 = plt.subplots(figsize=(10, 5))
-    ax2.plot(goryeong_years_str_list, seoul_elderly_ratio_trend, marker='o', linestyle='-', color='green', label='서울시 고령화율')
+    ax2.plot(goryeong_years_str_list, seoul_elderly_ratio_trend, marker='o', linestyle='-', label='서울시 고령화율') # color 지정 제거
     ax2.set_title('서울시 고령화율 변화', fontsize=15)
     ax2.set_xlabel('연도'); ax2.set_ylabel('고령화율 (%)')
     if len(seoul_elderly_ratio_trend) > 0 and np.nanmax(seoul_elderly_ratio_trend) > 0 : ax2.set_ylim(max(0, np.nanmin(seoul_elderly_ratio_trend) -1) , np.nanmax(seoul_elderly_ratio_trend) + 1)
     ax2.legend(); ax2.grid(True, which='both', linestyle='--', linewidth=0.5); plt.tight_layout(); st.pyplot(fig2)
 
 def plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data, selected_goryeong_year_str):
-    # ... (이전 코드 내용 유지 - 범례 수정, 제목에서 연도 제거됨) ...
     if seoul_total_goryeong_data.empty: st.info("노인 성별분포 데이터를 그릴 수 없습니다."); return
     try:
         male_pop = seoul_total_goryeong_data[(selected_goryeong_year_str, '65세이상 인구', '남자', '소계')]
@@ -136,14 +135,13 @@ def plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data, selected_goryeo
             return f'{pct:.1f}%\n({val:,}명)'
         return my_autopct
     wedges, texts, autotexts = ax.pie([male_pop, female_pop], explode=(0, 0.05),
-            colors=['skyblue', 'lightcoral'], autopct=make_autopct([male_pop, female_pop]),
-            shadow=True, startangle=140, textprops={'fontsize': 9, 'color':'black'})
+            autopct=make_autopct([male_pop, female_pop]), # labels 인자 제거하여 파이 조각에 직접 레이블 표시 안함
+            shadow=True, startangle=140, textprops={'fontsize': 9, 'color':'black'}) # colors 지정 제거
     ax.set_title('서울시 65세 이상 인구 성별 분포', fontsize=15); ax.axis('equal')
     ax.legend(wedges, pie_labels_for_legend, title="성별", loc="best", fontsize=10)
     st.pyplot(fig)
 
 def plot_district_elderly_ratio_yearly(df_goryeong_districts, selected_goryeong_year_str):
-    # ... (이전 코드 내용 유지 - 숫자 어노테이션 제거, 제목에서 연도 제거) ...
     if df_goryeong_districts.empty: st.info("구별 고령화율 데이터를 그릴 수 없습니다."); return
     try:
         total_pop = df_goryeong_districts[(selected_goryeong_year_str, '전체인구', '소계', '소계')]
@@ -152,7 +150,7 @@ def plot_district_elderly_ratio_yearly(df_goryeong_districts, selected_goryeong_
     ratio = (elderly_pop / total_pop.replace(0, np.nan)) * 100; ratio_sorted = ratio.dropna().sort_values(ascending=False)
     if ratio_sorted.empty: st.info("구별 고령화율 계산 결과가 없습니다."); return
     fig, ax = plt.subplots(figsize=(15, 7))
-    sns.barplot(x=ratio_sorted.index.get_level_values('구분_소'), y=ratio_sorted.values, color='mediumseagreen', ax=ax, label='고령화율')
+    sns.barplot(x=ratio_sorted.index.get_level_values('구분_소'), y=ratio_sorted.values, ax=ax, label='고령화율') # color 지정 제거
     ax.set_title('서울시 자치구별 고령화율', fontsize=15)
     ax.set_xlabel('자치구'); ax.set_ylabel('고령화율 (%)'); plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=10)
     ax.tick_params(axis='y', labelsize=10)
@@ -161,12 +159,11 @@ def plot_district_elderly_ratio_yearly(df_goryeong_districts, selected_goryeong_
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_dokgo_by_gu_yearly(df_gu_dokgo, selected_year):
-    # ... (이전 코드 내용 유지 - 숫자 어노테이션 제거, 제목에서 연도 제거, Y축 레이블 '자치구') ...
     if df_gu_dokgo.empty or selected_year not in df_gu_dokgo.columns:
         st.info("구별 독거노인 데이터를 그릴 수 없습니다."); return
     df_gu_sorted = df_gu_dokgo.sort_values(by=selected_year, ascending=False)
     fig, ax = plt.subplots(figsize=(10, 10))
-    ax.barh(df_gu_sorted.index, df_gu_sorted[selected_year], color='skyblue', label=f'독거노인 수')
+    ax.barh(df_gu_sorted.index, df_gu_sorted[selected_year], label=f'독거노인 수') # color 지정 제거
     ax.set_title(f'서울시 자치구별 독거노인 수', fontsize=15)
     ax.set_xlabel('독거노인 수 (명)'); ax.set_ylabel('자치구')
     ax.invert_yaxis()
@@ -175,7 +172,6 @@ def plot_dokgo_by_gu_yearly(df_gu_dokgo, selected_year):
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_districts, selected_year_dokgo_format):
-    # ... (이전 코드 내용 유지 - 숫자 어노테이션 제거, 제목에서 연도 제거) ...
     if df_dokgo_gu.empty or df_goryeong_districts.empty: st.info("구별 전체 노인 대비 독거노인 비율을 계산할 데이터가 부족합니다."); return
     if selected_year_dokgo_format not in df_dokgo_gu.columns: st.warning(f"독거노인 데이터에 {selected_year_dokgo_format} 컬럼이 없습니다."); return
     dokgo_count_series_gu = df_dokgo_gu[selected_year_dokgo_format]
@@ -189,7 +185,7 @@ def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_distric
     ratio_gu_sorted = ratio_gu.dropna().sort_values(ascending=False)
     if ratio_gu_sorted.empty: st.info("구별 독거노인 비율 계산 결과가 없습니다."); return
     fig, ax = plt.subplots(figsize=(15, 7))
-    sns.barplot(x=ratio_gu_sorted.index, y=ratio_gu_sorted.values, color='lightcoral', ax=ax, label='독거노인 비율')
+    sns.barplot(x=ratio_gu_sorted.index, y=ratio_gu_sorted.values, ax=ax, label='독거노인 비율') # color 지정 제거
     ax.set_title('서울시 자치구별 65세 이상 인구 중 독거노인 비율', fontsize=15)
     ax.set_xlabel('자치구'); ax.set_ylabel('독거노인 비율 (%)'); plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=10)
     ax.tick_params(axis='y', labelsize=10)
@@ -199,16 +195,15 @@ def plot_dokgo_vs_total_elderly_ratio_gu_yearly(df_dokgo_gu, df_goryeong_distric
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_seoul_total_dokgo_trend(df_seoul_total, df_seoul_male, df_seoul_female, year_data_cols):
-    # ... (이전 코드 내용 유지) ...
     if df_seoul_male.empty or df_seoul_female.empty or not year_data_cols:
         st.info("서울시 전체 독거노인(성별) 추이 데이터를 그릴 수 없습니다."); return
     fig, ax = plt.subplots(figsize=(12, 6))
     if not df_seoul_male.empty and all(col in df_seoul_male.columns for col in year_data_cols):
-        ax.plot(year_data_cols, df_seoul_male[year_data_cols].iloc[0], marker='o', linestyle='-', label='남성', color='royalblue')
+        ax.plot(year_data_cols, df_seoul_male[year_data_cols].iloc[0], marker='o', linestyle='-', label='남성') # color 지정 제거
     if not df_seoul_female.empty and all(col in df_seoul_female.columns for col in year_data_cols):
-        ax.plot(year_data_cols, df_seoul_female[year_data_cols].iloc[0], marker='s', linestyle='--', label='여성', color='tomato')
+        ax.plot(year_data_cols, df_seoul_female[year_data_cols].iloc[0], marker='s', linestyle='--', label='여성') # color 지정 제거
     if not df_seoul_total.empty and all(col in df_seoul_total.columns for col in year_data_cols):
-        ax.plot(year_data_cols, df_seoul_total[year_data_cols].iloc[0], marker='^', linestyle=':', label='전체 (계)', color='gray')
+        ax.plot(year_data_cols, df_seoul_total[year_data_cols].iloc[0], marker='^', linestyle=':', label='전체 (계)') # color 지정 제거
     ax.set_title('서울시 전체 연도별 독거노인 수 변화 (성별 구분)', fontsize=16)
     ax.set_xlabel('연도', fontsize=12); ax.set_ylabel('독거노인 수 (명)', fontsize=12)
     ax.set_xticks(year_data_cols); ax.set_xticklabels(year_data_cols)
@@ -217,7 +212,6 @@ def plot_seoul_total_dokgo_trend(df_seoul_total, df_seoul_male, df_seoul_female,
     plt.tight_layout(); st.pyplot(fig)
 
 def plot_top_gu_dokgo_trend(df_gu_dokgo, year_data_cols, N=10):
-    # ... (이전 코드 내용 유지, 제목 수정됨) ...
     if df_gu_dokgo.empty or not year_data_cols:
         st.info("상위 자치구 독거노인 추이 데이터를 그릴 수 없습니다."); return
     latest_year = year_data_cols[-1] if year_data_cols else None
@@ -230,8 +224,8 @@ def plot_top_gu_dokgo_trend(df_gu_dokgo, year_data_cols, N=10):
     fig, ax = plt.subplots(figsize=(14, 7))
     for gu_name in top_n_gu_names:
         if gu_name in df_top_trends.index:
-            ax.plot(year_data_cols, df_top_trends.loc[gu_name, year_data_cols], marker='o', label=gu_name)
-    ax.set_title(f'서울시 상위 {N}개 자치구 연도별 독거노인 변화', fontsize=15) # 제목 수정
+            ax.plot(year_data_cols, df_top_trends.loc[gu_name, year_data_cols], marker='o', label=gu_name) # color 지정 제거
+    ax.set_title(f'서울시 상위 {N}개 자치구 연도별 독거노인 변화', fontsize=15) 
     ax.set_xlabel('연도'); ax.set_ylabel('독거노인 수 (명)')
     ax.legend(title='자치구 이름', bbox_to_anchor=(1.02, 1), loc='upper left')
     ax.grid(True); ax.set_xticks(year_data_cols); ax.set_xticklabels(year_data_cols)
@@ -267,31 +261,71 @@ def create_dokgo_map_yearly(df_gu_dokgo, selected_year, geo_data):
 # 새로운 함수: 2023년 자치구별 65세 이상 인구 수 그래프
 def plot_district_elderly_population_latest(df_districts, latest_year_str='2023'):
     if df_districts.empty:
-        st.info(f"{latest_year_str}년 자치구별 65세 이상 인구 수 데이터를 그릴 수 없습니다.")
+        st.info(f"자치구별 65세 이상 인구 수 데이터를 그릴 수 없습니다.") # 연도 정보 제거
         return
     
     col_key = (latest_year_str, '65세이상 인구', '소계', '소계')
     if col_key not in df_districts.columns:
-        st.warning(f"{latest_year_str}년 65세 이상 인구 데이터 컬럼('{col_key}')을 찾을 수 없습니다.")
+        st.warning(f"65세 이상 인구 데이터 컬럼('{col_key}')을 찾을 수 없습니다.") # 연도 정보 제거
         return
         
     elderly_pop_by_district = df_districts[col_key].sort_values(ascending=False)
     
     if elderly_pop_by_district.empty:
-        st.info(f"{latest_year_str}년 자치구별 65세 이상 인구 수 데이터가 비어있습니다.")
+        st.info(f"자치구별 65세 이상 인구 수 데이터가 비어있습니다.") # 연도 정보 제거
         return
 
-    fig, ax = plt.subplots(figsize=(15, 8)) # Jupyter Notebook과 유사한 크기
+    fig, ax = plt.subplots(figsize=(15, 8))
     sns.barplot(x=elderly_pop_by_district.index.get_level_values('구분_소'), 
-                y=elderly_pop_by_district.values, 
-                palette="pastel", ax=ax) # palette는 선택 사항
-    ax.set_title(f'{latest_year_str}년 서울시 자치구별 65세 이상 인구 수', fontsize=16)
+                y=elderly_pop_by_district.values, ax=ax) # palette 제거
+    ax.set_title(f'서울시 자치구별 65세 이상 인구 수', fontsize=16) # 연도 정보 제거
     ax.set_xlabel('자치구', fontsize=12)
     ax.set_ylabel('65세 이상 인구 수 (명)', fontsize=12)
     plt.xticks(rotation=45, ha='right')
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: format(int(x), ',')))
-    # 막대 위 숫자 표시는 요청에 따라 제거됨
     plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+# 새로운 함수: 서울시 자치구별 고령화율 변화량
+def plot_district_elderly_ratio_change(df_districts, start_year_str, end_year_str):
+    if df_districts.empty:
+        st.info("자치구별 고령화율 변화량 데이터를 그릴 수 없습니다.")
+        return
+
+    start_total_col = (start_year_str, '전체인구', '소계', '소계')
+    start_elderly_col = (start_year_str, '65세이상 인구', '소계', '소계')
+    end_total_col = (end_year_str, '전체인구', '소계', '소계')
+    end_elderly_col = (end_year_str, '65세이상 인구', '소계', '소계')
+
+    if not all(col in df_districts.columns for col in [start_total_col, start_elderly_col, end_total_col, end_elderly_col]):
+        st.warning("고령화율 변화량 계산에 필요한 연도별 인구 데이터 컬럼이 부족합니다.")
+        return
+
+    dist_total_pop_start = df_districts[start_total_col]
+    dist_elderly_pop_start = df_districts[start_elderly_col]
+    dist_elderly_ratio_start = (dist_elderly_pop_start / dist_total_pop_start.replace(0, np.nan)) * 100
+
+    dist_total_pop_end = df_districts[end_total_col]
+    dist_elderly_pop_end = df_districts[end_elderly_col]
+    dist_elderly_ratio_end = (dist_elderly_pop_end / dist_total_pop_end.replace(0, np.nan)) * 100
+
+    ratio_change_pp = dist_elderly_ratio_end - dist_elderly_ratio_start.reindex(dist_elderly_ratio_end.index)
+    ratio_change_pp_sorted = ratio_change_pp.dropna().sort_values(ascending=False)
+
+    if ratio_change_pp_sorted.empty:
+        st.info("고령화율 변화량 계산 결과가 없습니다.")
+        return
+
+    fig, ax = plt.subplots(figsize=(18, 8))
+    sns.barplot(x=ratio_change_pp_sorted.index.get_level_values('구분_소'), 
+                y=ratio_change_pp_sorted.values, ax=ax) # palette 제거
+    ax.set_title(f'서울시 자치구별 고령화율 변화량 ({start_year_str}년 대비 {end_year_str}년)', fontsize=16)
+    ax.set_xlabel('자치구', fontsize=12)
+    ax.set_ylabel('고령화율 변화 (p.p.)', fontsize=12)
+    plt.xticks(rotation=45, ha='right')
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    # 막대 위 숫자 표시는 제거됨
     plt.tight_layout()
     st.pyplot(fig)
 
@@ -302,9 +336,9 @@ def run_elderly_population_page():
     set_korean_font()
 
     available_years_int = [2019, 2020, 2021, 2022, 2023]
-    # selected_year_int는 이제 "자치구별 현황 비교" 탭 내에서만 사용
-    if "selected_year_elderly_tab3" not in st.session_state:
-        st.session_state.selected_year_elderly_tab3 = available_years_int[-1]
+    # 자치구별 현황 비교 탭에서 사용할 연도 선택
+    if "selected_year_elderly_tab_specific" not in st.session_state: # 탭별로 키 구분
+        st.session_state.selected_year_elderly_tab_specific = available_years_int[-1]
 
     # 데이터 로드
     df_dokgo_raw_s1923 = load_csv("data/Seoul1923.csv")
@@ -331,16 +365,16 @@ def run_elderly_population_page():
     df_seoul_total_s1923, df_seoul_male_s1923, df_seoul_female_s1923, df_gu_dokgo_s1923 = filter_dokgo_data_cached(df_dokgo_processed_s1923, year_cols_dokgo_s1923_from_data if year_cols_dokgo_s1923_from_data else [f"{y}년" for y in available_years_int])
     df_goryeong_districts_page, seoul_total_goryeong_data_page = preprocess_goryeong_data_cached(df_goryeong_raw_page)
 
-    # 탭 순서 변경 및 새 탭 추가
-    tab_new, main_tab1, main_tab2, main_tab3 = st.tabs([
-        "2023년 자치구별 65세 이상 인구", # 새 탭
+    # 탭 구성
+    tab_new_population, main_tab1, main_tab2, main_tab3 = st.tabs([ # 새 탭 추가
+        "2023년 자치구별 65세 이상 인구",
         "서울시 전체 고령화 추세",
         "서울시 전체 독거노인 추세",
         "자치구별 현황 비교"
     ])
 
-    with tab_new: # <<< 새로운 탭
-        st.subheader("2023년 서울시 자치구별 65세 이상 인구 수") # 탭의 부제목
+    with tab_new_population:
+        st.subheader("2023년 서울시 자치구별 65세 이상 인구 수")
         if not df_goryeong_districts_page.empty:
             plot_district_elderly_population_latest(df_goryeong_districts_page, '2023')
         else:
@@ -350,24 +384,23 @@ def run_elderly_population_page():
         st.subheader("서울시 전체 고령화 추세")
         if not seoul_total_goryeong_data_page.empty:
             plot_seoul_population_trends(seoul_total_goryeong_data_page, [str(y) for y in available_years_int])
-            year_for_pie_main_tab1 = str(st.session_state.selected_year_elderly_tab3) # 자치구 탭 연동 또는 최신연도
+            year_for_pie_main_tab1 = str(st.session_state.selected_year_elderly_tab3)
             plot_elderly_sex_ratio_pie_yearly(seoul_total_goryeong_data_page, year_for_pie_main_tab1)
         else: st.warning("서울시 전체 고령자현황 데이터가 없어 추세를 표시할 수 없습니다.")
 
     with main_tab2:
         st.subheader("서울시 전체 독거노인 추세")
-        # 요청사항 3: 첫 번째 그래프 복원
         plot_seoul_total_dokgo_trend(df_seoul_total_s1923, df_seoul_male_s1923, df_seoul_female_s1923, year_cols_dokgo_s1923_from_data if year_cols_dokgo_s1923_from_data else [f"{y}년" for y in available_years_int])
         plot_top_gu_dokgo_trend(df_gu_dokgo_s1923, year_cols_dokgo_s1923_from_data if year_cols_dokgo_s1923_from_data else [f"{y}년" for y in available_years_int], N=10)
 
     with main_tab3:
         selected_year_tab3_val = st.slider(
-            "조회 연도 선택", # 레이블에서 "(자치구별 현황)" 제거 가능 (탭 제목으로 충분)
+            "조회 연도 선택", # 레이블 변경
             min_value=available_years_int[0],
             max_value=available_years_int[-1],
             step=1,
             value=st.session_state.selected_year_elderly_tab3, 
-            key="elderly_year_slider_tab3_specific_v6"
+            key="elderly_year_slider_tab3_specific_v7"
         )
         if st.session_state.selected_year_elderly_tab3 != selected_year_tab3_val:
             st.session_state.selected_year_elderly_tab3 = selected_year_tab3_val
@@ -378,11 +411,21 @@ def run_elderly_population_page():
 
         st.subheader(f"{selected_year_tab3_val}년 자치구별 현황 비교")
         
-        sub_tab_gu1, sub_tab_gu2, sub_tab_gu3, sub_tab_gu5 = st.tabs([
-            "고령화율", "독거노인 수", "노인 중 독거노인 비율", "독거노인 지도"
+        # 탭 순서 변경: "고령화율 변화량" 추가
+        sub_tab_gu1, sub_tab_gu_change, sub_tab_gu2, sub_tab_gu3, sub_tab_gu5 = st.tabs([
+            "고령화율", "고령화율 변화량", "독거노인 수", "노인 중 독거노인 비율", "독거노인 지도"
         ])
         with sub_tab_gu1:
             plot_district_elderly_ratio_yearly(df_goryeong_districts_page, current_selected_year_goryeong_format_tab3)
+        
+        with sub_tab_gu_change: # <<< 새로운 탭 내용
+            st.markdown(f"#### 자치구별 고령화율 변화량 (2019년 대비 {selected_year_tab3_val}년)")
+            if not df_goryeong_districts_page.empty:
+                 # 변화량 계산을 위해 기준 연도(2019)와 현재 선택 연도 필요
+                plot_district_elderly_ratio_change(df_goryeong_districts_page, '2019', current_selected_year_goryeong_format_tab3)
+            else:
+                st.warning("자치구별 고령화율 변화량 데이터를 그릴 수 없습니다.")
+
         with sub_tab_gu2:
             plot_dokgo_by_gu_yearly(df_gu_dokgo_s1923, current_selected_year_dokgo_format_tab3)
         with sub_tab_gu3:
