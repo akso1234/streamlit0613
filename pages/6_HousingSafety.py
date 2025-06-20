@@ -476,7 +476,7 @@ def run_housing_safety_page():
 
     # 데이터 로드
     df_rescue_raw = load_csv("data/서울특별시_구조활동현황.csv")
-    df_elderly_raw_h = load_csv("data/고령자현황_20250531210628.csv", header_config=[0,1,2,3])
+    df_elderly_raw_h = load_csv("data/elderly_status_20250531210628.csv", header_config=[0,1,2,3])
     df_housing_raw_h = load_csv("data/노후기간별+주택현황_20250601054647.csv", header_config=[0,1,2])
 
     if df_rescue_raw is None or df_elderly_raw_h is None or df_housing_raw_h is None:
